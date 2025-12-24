@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.service.Impl;
 
+import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.Role;
 import com.spareparts.spareparts_backend.enums.UserStatus;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -21,8 +23,9 @@ public class UserServiceImpl implements UserService {
     private final UserRepo userRepo;
     private final PasswordEncoder passwordEncoder;
 
+    // ---------------- REGISTER USER ---------------- //
     @Override
-    public User registerUser(User user) {
+    public UserDtoReturn registerUser(User user) {
         // Check if email already exists
         if (userRepo.findByEmail(user.getEmail()).isPresent()) {
             throw new RuntimeException("Email already exists");
@@ -31,66 +34,70 @@ public class UserServiceImpl implements UserService {
         // Encode password
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        // Default role
+        // Default role if null
         if (user.getRole() == null) {
             user.setRole(Role.CUSTOMER);
         }
 
-        // Set initial status to pending if partner or manager
-        if (user.getRole() == Role.PARTNER || user.getRole() == Role.MANAGER) {
-            // You can add a status field in User if you want "PENDING" tracking
-        }
-
-        return userRepo.save(user);
+        // Status is automatically set by @PrePersist in User entity
+        User savedUser = userRepo.save(user);
+        return toUserDtoReturn(savedUser);
     }
 
+    // ---------------- LOGIN USER ---------------- //
     @Override
-    public User loginUser(String email, String password) {
+    public UserDtoReturn loginUser(String email, String password) {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
-        // Check password
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("Invalid password");
         }
 
-        return user;
+        if (user.getStatus() != UserStatus.APPROVED) {
+            throw new RuntimeException("User is not approved yet");
+        }
+
+        return toUserDtoReturn(user);
     }
 
-    // ---------------- GET USER ---------------- //
+    // ---------------- GET USER BY ID ---------------- //
     @Override
-    public Optional<User> getUserById(Integer id) {
-        return userRepo.findById(id);
+    public Optional<UserDtoReturn> getUserById(Integer id) {
+        return userRepo.findById(id).map(this::toUserDtoReturn);
     }
 
+    // ---------------- GET ALL USERS ---------------- //
     @Override
-    public List<User> getAllUsers() {
-        return userRepo.findAll();
+    public List<UserDtoReturn> getAllUsers() {
+        return userRepo.findAll().stream()
+                .map(this::toUserDtoReturn)
+                .collect(Collectors.toList());
     }
 
     // ---------------- APPROVE USER ---------------- //
     @Override
-    public User approveUser(Integer userId) {
+    public UserDtoReturn approveUser(Integer userId) {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         user.setStatus(UserStatus.APPROVED);
-        return userRepo.save(user);    }
+        return toUserDtoReturn(userRepo.save(user));
+    }
 
     // ---------------- DISAPPROVE USER ---------------- //
-
     @Override
-    public User disapproveUser(Integer userId) {
+    public UserDtoReturn disapproveUser(Integer userId) {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         user.setStatus(UserStatus.REJECTED);
-        return userRepo.save(user);    }
+        return toUserDtoReturn(userRepo.save(user));
+    }
 
     // ---------------- CHANGE ROLE ---------------- //
-
     @Override
-    public User changeUserRole(Integer userId, Role role) {
+    public UserDtoReturn changeUserRole(Integer userId, Role role) {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -103,6 +110,11 @@ public class UserServiceImpl implements UserService {
             user.setStatus(UserStatus.APPROVED);
         }
 
-        return userRepo.save(user);
+        return toUserDtoReturn(userRepo.save(user));
+    }
+
+    // ---------------- HELPER: Convert User to DTO ---------------- //
+    private UserDtoReturn toUserDtoReturn(User user) {
+        return new UserDtoReturn(user.getEmail(), user.getStatus());
     }
 }
