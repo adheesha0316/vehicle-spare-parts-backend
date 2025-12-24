@@ -13,27 +13,25 @@ import java.util.Collections;
 import java.util.List;
 
 @Service
-public class CustomerUserDetailsService implements UserDetailsService {
+public class CustomUserDetailsService implements UserDetailsService {
 
     private UserRepo userRepo;
 
     @Autowired
-    public CustomerUserDetailsService(UserRepo userRepo) {
+    public CustomUserDetailsService(UserRepo userRepo) {
         this.userRepo = userRepo;
     }
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("User not found with email: " + email));
 
-        // Spring convention: hasRole("ADMIN") expects authority "ROLE_ADMIN"
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPassword(),
-                Collections.singletonList(
-                        new SimpleGrantedAuthority(user.getRole().name())
-                )
+                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
         );
     }
 }
