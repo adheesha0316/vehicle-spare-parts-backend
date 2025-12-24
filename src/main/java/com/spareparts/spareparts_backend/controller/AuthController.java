@@ -1,6 +1,9 @@
 package com.spareparts.spareparts_backend.controller;
 
+import com.spareparts.spareparts_backend.dto.LoginRequestDto;
+import com.spareparts.spareparts_backend.dto.LoginResponseDto;
 import com.spareparts.spareparts_backend.dto.UserDto;
+import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.service.UserService;
 import com.spareparts.spareparts_backend.utill.JWTTokenGenerator;
@@ -23,39 +26,45 @@ public class AuthController {
 
     // ---------------- REGISTER ---------------- //
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody UserDto userDto) {
-        User user = User.builder()
-                .username(userDto.getUsername())
-                .email(userDto.getEmail())
-                .password(userDto.getPassword())
-                .role(userDto.getRole())
-                .build();
-
-        User registeredUser = userService.registerUser(user);
+    public ResponseEntity<UserDtoReturn> registerUser(@RequestBody UserDto userDto) {
+        UserDtoReturn registeredUser = userService.registerUser(
+                User.builder()
+                        .username(userDto.getUsername())
+                        .email(userDto.getEmail())
+                        .password(userDto.getPassword())
+                        .role(userDto.getRole())
+                        .build()
+        );
 
         return ResponseEntity.ok(registeredUser);
     }
 
     // ---------------- LOGIN ---------------- //
     @PostMapping("/login")
-    public ResponseEntity<?> loginUser(@RequestBody UserDto userDto) {
+    public ResponseEntity<LoginResponseDto> loginUser(@RequestBody LoginRequestDto loginRequestDto) {
         try {
+            // Authenticate user
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            userDto.getEmail(),
-                            userDto.getPassword()
+                            loginRequestDto.getEmail(),
+                            loginRequestDto.getPassword()
                     )
             );
 
-            User user = userService.loginUser(userDto.getEmail(), userDto.getPassword());
+            // Get safe login DTO (without JWT)
+            LoginResponseDto loginResponse = userService.loginUser(loginRequestDto);
+
+            // Get full User entity to generate JWT
+            User user = userService.getUserEntityByEmail(loginRequestDto.getEmail());
             String token = jwtTokenGenerator.generateToken(user);
 
-            return ResponseEntity.ok().body(
-                    new LoginResponse(user.getEmail(), user.getRole().name(), token)
-            );
+            // Set token
+            loginResponse.setToken(token);
+
+            return ResponseEntity.ok(loginResponse);
 
         } catch (AuthenticationException e) {
-            return ResponseEntity.status(401).body("Invalid email or password");
+            return ResponseEntity.status(401).build();
         }
     }
 
@@ -64,7 +73,7 @@ public class AuthController {
     @lombok.AllArgsConstructor
     static class LoginResponse {
         private String email;
-        private String role;
+        private String status;  // Changed from role → status, matches UserDtoReturn
         private String token;
     }
 }

@@ -29,10 +29,17 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**").permitAll() // login/register public
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN") // admin only
-                        .requestMatchers("/api/v1/manager/**").hasAnyRole("MANAGER","ADMIN") // manager or admin
-                        .requestMatchers("/api/v1/partner/**").hasAnyRole("PARTNER","ADMIN") // partner or admin
+                        // Public endpoints
+                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        // Admin endpoints
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // Manager endpoints
+                        .requestMatchers("/api/v1/manager/**").hasAnyRole("MANAGER","ADMIN")
+                        // Partner endpoints
+                        .requestMatchers("/api/v1/partner/**").hasAnyRole("PARTNER","ADMIN")
+                        // User endpoints
+                        .requestMatchers("/api/v1/user/**").hasAnyRole("USER","ADMIN")
+                        // Any other request requires authentication
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -1,5 +1,7 @@
 package com.spareparts.spareparts_backend.service;
 
+import com.spareparts.spareparts_backend.dto.LoginRequestDto;
+import com.spareparts.spareparts_backend.dto.LoginResponseDto;
 import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.Role;
@@ -11,8 +13,8 @@ public interface UserService {
     // Register user (returns DTO for API response)
     UserDtoReturn registerUser(User user);
 
-    // Login user (returns DTO for API response)
-    UserDtoReturn loginUser(String email, String password);
+    // ---------------- LOGIN ---------------- //
+    LoginResponseDto loginUser(LoginRequestDto loginRequestDto);
 
     // Get user by ID as DTO
     Optional<UserDtoReturn> getUserById(Integer id);
@@ -28,4 +30,8 @@ public interface UserService {
 
     // Change user role (admin only)
     UserDtoReturn changeUserRole(Integer userId, Role role);
+
+    // --- NEW METHOD ---
+    // Get full User entity by email (for JWT token generation)
+    User getUserEntityByEmail(String email);
 }

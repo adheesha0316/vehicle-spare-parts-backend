@@ -5,5 +5,5 @@ public enum Role {
     MANAGER,
     PARTNER,
     CUSTOMER,
-    VISITOR
+    USER
 }

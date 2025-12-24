@@ -1,5 +1,7 @@
 package com.spareparts.spareparts_backend.service.Impl;
 
+import com.spareparts.spareparts_backend.dto.LoginRequestDto;
+import com.spareparts.spareparts_backend.dto.LoginResponseDto;
 import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.Role;
@@ -44,13 +46,12 @@ public class UserServiceImpl implements UserService {
         return toUserDtoReturn(savedUser);
     }
 
-    // ---------------- LOGIN USER ---------------- //
     @Override
-    public UserDtoReturn loginUser(String email, String password) {
-        User user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
+    public LoginResponseDto loginUser(LoginRequestDto loginRequestDto) {
+        User user = userRepo.findByEmail(loginRequestDto.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!passwordEncoder.matches(password, user.getPassword())) {
+        if (!passwordEncoder.matches(loginRequestDto.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid password");
         }
 
@@ -58,8 +59,17 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("User is not approved yet");
         }
 
-        return toUserDtoReturn(user);
+        return LoginResponseDto.builder()
+                .email(user.getEmail())
+                .role(user.getRole())
+                .userName(user.getUsername())
+                .status(user.getStatus().name())
+                .token(null) // JWT added in controller
+                .build();
     }
+
+    // ---------------- LOGIN USER ---------------- //
+
 
     // ---------------- GET USER BY ID ---------------- //
     @Override
@@ -111,6 +121,12 @@ public class UserServiceImpl implements UserService {
         }
 
         return toUserDtoReturn(userRepo.save(user));
+    }
+
+    @Override
+    public User getUserEntityByEmail(String email) {
+        return userRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
     }
 
     // ---------------- HELPER: Convert User to DTO ---------------- //
