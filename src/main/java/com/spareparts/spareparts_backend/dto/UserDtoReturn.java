@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.dto;
 
+import com.spareparts.spareparts_backend.enums.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,5 +10,4 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserDtoReturn {
     private String email;
-    private String status;
-}
+    private UserStatus status;}
