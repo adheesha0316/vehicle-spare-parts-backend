@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.service;
 
+import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.Role;
 
@@ -7,19 +8,24 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserService {
-    User registerUser(User user); // Register partner, manager, customer
+    // Register user (returns DTO for API response)
+    UserDtoReturn registerUser(User user);
 
-    User loginUser(String email, String password); // Basic login
+    // Login user (returns DTO for API response)
+    UserDtoReturn loginUser(String email, String password);
 
-    Optional<User> getUserById(Integer id);
+    // Get user by ID as DTO
+    Optional<UserDtoReturn> getUserById(Integer id);
 
-    List<User> getAllUsers();
+    // Get all users as DTO
+    List<UserDtoReturn> getAllUsers();
 
-    // Admin approves or disapproves a user (partner or manager)
-    User approveUser(Integer userId);
+    // Admin approves a user
+    UserDtoReturn approveUser(Integer userId);
 
-    User disapproveUser(Integer userId);
+    // Admin disapproves a user
+    UserDtoReturn disapproveUser(Integer userId);
 
-    // Change role (only admin)
-    User changeUserRole(Integer userId, Role role);
+    // Change user role (admin only)
+    UserDtoReturn changeUserRole(Integer userId, Role role);
 }

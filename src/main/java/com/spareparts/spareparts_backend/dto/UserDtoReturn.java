@@ -10,4 +10,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserDtoReturn {
     private String email;
-    private UserStatus status;}
+    private UserStatus status;
+}
