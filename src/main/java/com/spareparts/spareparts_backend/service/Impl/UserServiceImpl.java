@@ -46,6 +46,7 @@ public class UserServiceImpl implements UserService {
         return toUserDtoReturn(savedUser);
     }
 
+    // ---------------- LOGIN USER ---------------- //
     @Override
     public LoginResponseDto loginUser(LoginRequestDto loginRequestDto) {
         User user = userRepo.findByEmail(loginRequestDto.getEmail())
@@ -68,14 +69,13 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
-    // ---------------- LOGIN USER ---------------- //
-
 
     // ---------------- GET USER BY ID ---------------- //
     @Override
     public Optional<UserDtoReturn> getUserById(Integer id) {
         return userRepo.findById(id).map(this::toUserDtoReturn);
     }
+
 
     // ---------------- GET ALL USERS ---------------- //
     @Override
