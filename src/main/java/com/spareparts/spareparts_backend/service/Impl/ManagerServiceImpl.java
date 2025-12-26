@@ -4,6 +4,8 @@ import com.spareparts.spareparts_backend.dto.ManagerDto;
 import com.spareparts.spareparts_backend.entity.Manager;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.ManagerStatus;
+import com.spareparts.spareparts_backend.enums.Role;
+import com.spareparts.spareparts_backend.enums.UserStatus;
 import com.spareparts.spareparts_backend.repo.ManagerRepo;
 import com.spareparts.spareparts_backend.repo.UserRepo;
 import com.spareparts.spareparts_backend.service.ManagerService;
@@ -45,14 +47,29 @@ public class ManagerServiceImpl implements ManagerService {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        // ================= VALIDATIONS =================
+        if (user.getRole() != Role.MANAGER) {
+            throw new RuntimeException("Only MANAGER role users can create manager profile");
+        }
+
+        if (user.getStatus() != UserStatus.APPROVED) {
+            throw new RuntimeException("User is not approved by ADMIN");
+        }
+        // =================================================
+
         Manager manager = modelMapper.map(managerDto, Manager.class);
         manager.setUser(user);
         manager.setStatus(ManagerStatus.PENDING);
         manager.setCreatedAt(LocalDateTime.now());
 
-        if (nicFront != null && !nicFront.isEmpty()) manager.setNicFrontImage(storeFile(nicFront, "nicFront"));
-        if (nicBack != null && !nicBack.isEmpty()) manager.setNicBackImage(storeFile(nicBack, "nicBack"));
-        if (profileImage != null && !profileImage.isEmpty()) manager.setProfileImage(storeFile(profileImage, "profileImg"));
+        if (nicFront != null && !nicFront.isEmpty())
+            manager.setNicFrontImage(storeFile(nicFront, "nicFront"));
+
+        if (nicBack != null && !nicBack.isEmpty())
+            manager.setNicBackImage(storeFile(nicBack, "nicBack"));
+
+        if (profileImage != null && !profileImage.isEmpty())
+            manager.setProfileImage(storeFile(profileImage, "profileImg"));
 
         Manager saved = managerRepo.save(manager);
         return modelMapper.map(saved, ManagerDto.class);
