@@ -21,21 +21,39 @@ public class ManagerController {
 
     private final ManagerService managerService;
 
-    // ---------------- CREATE MANAGER PROFILE ---------------- //
-    @PostMapping("/create")
+    // =========================================================
+    // CREATE MANAGER PROFILE (ONLY MANAGER ROLE - APPROVED USER)
+    // =========================================================
+    @PostMapping(
+            value = "/create",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<ManagerDto> createManager(
-            @RequestParam Integer userId,
+            @RequestParam("userId") Integer userId,
             @RequestPart("manager") ManagerDto managerDto,
             @RequestPart(value = "nicFront", required = false) MultipartFile nicFront,
             @RequestPart(value = "nicBack", required = false) MultipartFile nicBack,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
     ) {
-        ManagerDto created = managerService.createManager(userId, managerDto, nicFront, nicBack, profileImage);
+        ManagerDto created = managerService.createManager(
+                userId,
+                managerDto,
+                nicFront,
+                nicBack,
+                profileImage
+        );
         return ResponseEntity.ok(created);
     }
 
-    // ---------------- UPDATE MANAGER PROFILE ---------------- //
-    @PutMapping("/update/{managerId}")
+    // ======================================
+    // UPDATE MANAGER PROFILE (MANAGER / ADMIN)
+    // ======================================
+    @PutMapping(
+            value = "/update/{managerId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     public ResponseEntity<ManagerDto> updateManager(
             @PathVariable Integer managerId,
             @RequestPart("manager") ManagerDto managerDto,
@@ -43,25 +61,41 @@ public class ManagerController {
             @RequestPart(value = "nicBack", required = false) MultipartFile nicBack,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
     ) {
-        ManagerDto updated = managerService.updateManager(managerId, managerDto, nicFront, nicBack, profileImage);
+        ManagerDto updated = managerService.updateManager(
+                managerId,
+                managerDto,
+                nicFront,
+                nicBack,
+                profileImage
+        );
         return ResponseEntity.ok(updated);
     }
 
-    // ---------------- DELETE MANAGER PROFILE ---------------- //
+    // ============================
+    // DELETE MANAGER PROFILE (ADMIN)
+    // ============================
     @DeleteMapping("/delete/{managerId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteManager(@PathVariable Integer managerId) {
         managerService.deleteManagerProfile(managerId);
         return ResponseEntity.noContent().build();
     }
 
-    // ---------------- GET MANAGER BY ID ---------------- //
+    // ============================
+    // GET MANAGER BY ID (ADMIN)
+    // ============================
     @GetMapping("/{managerId}")
-    public ResponseEntity<ManagerDto> getManagerById(@PathVariable Integer managerId) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ManagerDto> getManagerById(
+            @PathVariable Integer managerId
+    ) {
         ManagerDto manager = managerService.getManagerById(managerId);
         return ResponseEntity.ok(manager);
     }
 
-    // ---------------- GET ALL MANAGERS ---------------- //
+    // ============================
+    // GET ALL MANAGERS (ADMIN)
+    // ============================
     @GetMapping("/all")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<ManagerDto>> getAllManagers() {
@@ -69,22 +103,33 @@ public class ManagerController {
         return ResponseEntity.ok(managers);
     }
 
-    // ---------------- APPROVE MANAGER PROFILE (ADMIN) ---------------- //
+    // ============================
+    // APPROVE MANAGER PROFILE (ADMIN)
+    // ============================
     @PutMapping("/approve/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ManagerDto> approveManager(@PathVariable Integer managerId) {
+    public ResponseEntity<ManagerDto> approveManager(
+            @PathVariable Integer managerId
+    ) {
         ManagerDto approved = managerService.approveManagerProfile(managerId);
         return ResponseEntity.ok(approved);
     }
 
-    // ---------------- DOWNLOAD NIC IMAGES AS ZIP ---------------- //
+    // ============================
+    // DOWNLOAD NIC IMAGES (ADMIN)
+    // ============================
     @GetMapping("/downloadNIC/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Resource> downloadNICImages(@PathVariable Integer managerId) {
+    public ResponseEntity<Resource> downloadNICImages(
+            @PathVariable Integer managerId
+    ) {
         Resource resource = managerService.downloadNICImagesAsZip(managerId);
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=NIC_Images.zip")
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=NIC_Images.zip"
+                )
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
     }

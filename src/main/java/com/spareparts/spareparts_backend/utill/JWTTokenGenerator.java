@@ -32,11 +32,10 @@ public class JWTTokenGenerator {
     }
 
     // ================= TOKEN GENERATION =================
-
     public String generateToken(User user) {
         return Jwts.builder()
+                .setId(String.valueOf(user.getUserId()))
                 .setSubject(user.getEmail())
-                .claim("userId", user.getUserId())
                 .claim("username", user.getUsername())
                 .claim("role", user.getRole().name())
                 .setIssuedAt(new Date())

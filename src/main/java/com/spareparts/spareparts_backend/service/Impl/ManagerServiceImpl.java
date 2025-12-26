@@ -55,7 +55,8 @@ public class ManagerServiceImpl implements ManagerService {
         if (profileImage != null && !profileImage.isEmpty()) manager.setProfileImage(storeFile(profileImage, "profileImg"));
 
         Manager saved = managerRepo.save(manager);
-        return modelMapper.map(saved, ManagerDto.class);    }
+        return modelMapper.map(saved, ManagerDto.class);
+    }
 
     @Override
     public ManagerDto updateManager(Integer managerId, ManagerDto managerDto, MultipartFile nicFront, MultipartFile nicBack, MultipartFile profileImage) {
@@ -71,7 +72,8 @@ public class ManagerServiceImpl implements ManagerService {
         if (profileImage != null && !profileImage.isEmpty()) manager.setProfileImage(storeFile(profileImage, "profileImg"));
 
         Manager updated = managerRepo.save(manager);
-        return modelMapper.map(updated, ManagerDto.class);    }
+        return modelMapper.map(updated, ManagerDto.class);
+    }
 
     @Override
     public void deleteManagerProfile(Integer managerId) {
@@ -91,14 +93,16 @@ public class ManagerServiceImpl implements ManagerService {
     public List<ManagerDto> getAllManagers() {
         return managerRepo.findAll().stream()
                 .map(manager -> modelMapper.map(manager, ManagerDto.class))
-                .collect(Collectors.toList());    }
+                .collect(Collectors.toList());
+    }
 
     @Override
     public ManagerDto approveManagerProfile(Integer managerId) {
         Manager manager = managerRepo.findById(managerId)
                 .orElseThrow(() -> new RuntimeException("Manager not found"));
         manager.setStatus(ManagerStatus.APPROVED);
-        return modelMapper.map(managerRepo.save(manager), ManagerDto.class);    }
+        return modelMapper.map(managerRepo.save(manager), ManagerDto.class);
+    }
 
     @Override
     public Resource downloadNICImagesAsZip(Integer managerId) {
