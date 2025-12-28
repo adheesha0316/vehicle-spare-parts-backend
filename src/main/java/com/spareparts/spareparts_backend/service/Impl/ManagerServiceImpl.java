@@ -94,16 +94,16 @@ public class ManagerServiceImpl implements ManagerService {
     }
 
     @Override
-    public void deleteManagerProfile(Integer managerId) {
-        Manager manager = managerRepo.findById(managerId)
-                .orElseThrow(() -> new RuntimeException("Manager not found"));
+    public void softDeleteManager(Integer managerId) {
+        Manager manager = managerRepo.findByManagerIdAndStatusNot(
+                managerId, ManagerStatus.DELETED
+        ).orElseThrow(() -> new RuntimeException("Manager not found"));
 
-        deleteFileIfExists(manager.getNicFrontImage());
-        deleteFileIfExists(manager.getNicBackImage());
-        deleteFileIfExists(manager.getProfileImage());
-
-        managerRepo.delete(manager);
+        manager.setStatus(ManagerStatus.DELETED);
+        manager.setUpdatedAt(LocalDateTime.now());
+        managerRepo.save(manager);
     }
+
 
     @Override
     public ManagerDto getManagerById(Integer managerId) {
@@ -114,9 +114,10 @@ public class ManagerServiceImpl implements ManagerService {
 
     @Override
     public List<ManagerDto> getAllManagers() {
-        return managerRepo.findAll().stream()
+        return managerRepo.findByStatusNot(ManagerStatus.DELETED)
+                .stream()
                 .map(manager -> modelMapper.map(manager, ManagerDto.class))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -171,17 +172,4 @@ public class ManagerServiceImpl implements ManagerService {
         zos.closeEntry();
     }
 
-
-    private void deleteFileIfExists(String filePath) {
-        if (filePath == null || filePath.isBlank()) return;
-
-        try {
-            Path path = Paths.get(filePath);
-            if (Files.exists(path)) {
-                Files.delete(path);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to delete file: " + filePath, e);
-        }
-    }
 }

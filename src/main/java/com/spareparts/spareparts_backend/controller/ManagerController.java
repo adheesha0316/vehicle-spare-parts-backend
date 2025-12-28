@@ -107,7 +107,7 @@ public class ManagerController {
     @DeleteMapping("/delete/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> deleteManager(@PathVariable Integer managerId) {
-        managerService.deleteManagerProfile(managerId);
+        managerService.softDeleteManager(managerId);
         return ResponseEntity.ok("Manager deleted successfully"); // HTTP 200 with body
     }
 

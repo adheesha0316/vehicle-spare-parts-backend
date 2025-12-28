@@ -17,8 +17,8 @@ public interface ManagerService {
                              MultipartFile nicFront, MultipartFile nicBack, MultipartFile profileImage);
 
 
-    // ---------------- DELETE ---------------- //
-    void deleteManagerProfile(Integer managerId);
+    // ---------------- SOFT DELETE ---------------- //
+    void softDeleteManager(Integer managerId);
 
 
     // ---------------- GET ---------------- //
