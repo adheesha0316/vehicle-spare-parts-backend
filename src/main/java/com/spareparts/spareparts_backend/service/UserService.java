@@ -34,4 +34,9 @@ public interface UserService {
     // --- NEW METHOD ---
     // Get full User entity by email (for JWT token generation)
     User getUserEntityByEmail(String email);
+
+    // UserService.java
+// Get full User entity by ID (for manager creation or approval checks)
+    User getUserEntityById(Integer userId);
+
 }
