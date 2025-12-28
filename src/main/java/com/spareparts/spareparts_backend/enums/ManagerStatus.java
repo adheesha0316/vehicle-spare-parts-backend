@@ -5,5 +5,6 @@ public enum ManagerStatus {
     APPROVED,         // active
     UPDATE_PENDING,   // updated, waiting admin
     REJECTED,
-    SUSPENDED
+    SUSPENDED,
+    DELETED           // soft deleted
 }
