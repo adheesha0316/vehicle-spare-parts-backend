@@ -17,8 +17,11 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @RestController
 @RequestMapping("/api/v1/manager")
@@ -46,10 +49,9 @@ public class ManagerController {
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
     ) throws Exception {
 
-        ObjectMapper mapper = new ObjectMapper();
         ManagerDto managerDto = mapper.readValue(managerJson, ManagerDto.class);
-
         User user = userService.getUserEntityById(userId);
+
         if (user.getStatus() != UserStatus.APPROVED) {
             throw new AccessDeniedException("Manager account not approved by admin yet.");
         }
@@ -76,26 +78,14 @@ public class ManagerController {
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
     ) throws JsonProcessingException {
 
-        // Convert JSON to DTO
-        ObjectMapper mapper = new ObjectMapper();
         ManagerDto managerDto = mapper.readValue(managerJson, ManagerDto.class);
 
-        // Fetch existing manager to check approval
         ManagerDto existingManager = managerService.getManagerById(managerId);
-
-        if (existingManager.getStatus() != ManagerStatus.APPROVED) {
-            throw new AccessDeniedException("Manager account not approved by admin yet.");
+        if (existingManager.getStatus() == ManagerStatus.DELETED) {
+            throw new ResponseStatusException(NOT_FOUND, "Cannot update a deleted manager");
         }
 
-        // Call service to safely update
-        ManagerDto updatedManager = managerService.updateManager(
-                managerId,
-                managerDto,
-                nicFront,
-                nicBack,
-                profileImage
-        );
-
+        ManagerDto updatedManager = managerService.updateManager(managerId, managerDto, nicFront, nicBack, profileImage);
         return ResponseEntity.ok(updatedManager);
     }
 
@@ -107,8 +97,12 @@ public class ManagerController {
     @DeleteMapping("/delete/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> deleteManager(@PathVariable Integer managerId) {
-        managerService.softDeleteManager(managerId);
-        return ResponseEntity.ok("Manager deleted successfully"); // HTTP 200 with body
+        try {
+            managerService.softDeleteManager(managerId);
+            return ResponseEntity.ok("Manager deleted successfully");
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
+        }
     }
 
     // ============================
@@ -117,8 +111,12 @@ public class ManagerController {
     @PatchMapping("/restore/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> restoreManager(@PathVariable Integer managerId) {
-        managerService.restoreManagerProfile(managerId); // sets status = APPROVED or PENDING
-        return ResponseEntity.ok("Manager restored successfully");
+        try {
+            managerService.restoreManagerProfile(managerId);
+            return ResponseEntity.ok("Manager restored successfully");
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
+        }
     }
 
     // ============================
@@ -127,8 +125,12 @@ public class ManagerController {
     @GetMapping("/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ManagerDto> getManagerById(@PathVariable Integer managerId) {
-        ManagerDto manager = managerService.getManagerById(managerId);
-        return ResponseEntity.ok(manager);
+        try {
+            ManagerDto manager = managerService.getManagerById(managerId);
+            return ResponseEntity.ok(manager);
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
+        }
     }
 
     // ============================
@@ -147,8 +149,12 @@ public class ManagerController {
     @PutMapping("/approve/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ManagerDto> approveManager(@PathVariable Integer managerId) {
-        ManagerDto approved = managerService.approveManagerProfile(managerId);
-        return ResponseEntity.ok(approved);
+        try {
+            ManagerDto approved = managerService.approveManagerProfile(managerId);
+            return ResponseEntity.ok(approved);
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
+        }
     }
 
     // ============================
@@ -157,11 +163,14 @@ public class ManagerController {
     @GetMapping("/downloadNIC/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Resource> downloadNICImages(@PathVariable Integer managerId) {
-        Resource resource = managerService.downloadNICImagesAsZip(managerId);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=NIC_Images.zip")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(resource);
+        try {
+            Resource resource = managerService.downloadNICImagesAsZip(managerId);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=NIC_Images.zip")
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(resource);
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
+        }
     }
 }
