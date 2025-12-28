@@ -15,6 +15,8 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.function.Function;
 
+import static io.jsonwebtoken.Jwts.*;
+
 @Component
 public class JWTTokenGenerator {
     @Value("${jwt.secret}")
@@ -33,7 +35,7 @@ public class JWTTokenGenerator {
 
     // ================= TOKEN GENERATION =================
     public String generateToken(User user) {
-        return Jwts.builder()
+        return builder()
                 .setId(String.valueOf(user.getUserId()))
                 .setSubject(user.getEmail())
                 .claim("username", user.getUsername())
@@ -76,12 +78,13 @@ public class JWTTokenGenerator {
     // ================= PRIVATE HELPERS =================
 
     private Claims getAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(key)
+        return Jwts.parserBuilder()
+                .setSigningKey(key)       // 0.12.x uses SecretKey directly
                 .build()
-                .parseSignedClaims(token)
-                .getPayload();
+                .parseClaimsJws(token)
+                .getBody();
     }
+
 
     private <T> T extractClaim(String token, Function<Claims, T> resolver) {
         return resolver.apply(getAllClaims(token));
