@@ -10,13 +10,9 @@ import java.util.Optional;
 
 @Repository
 public interface ManagerRepo extends JpaRepository<Manager,Integer> {
-    // 🔹 Find manager by linked user (exclude deleted)
-    Optional<Manager> findByUserUserIdAndStatusNot(Integer userId, ManagerStatus status);
+    Optional<Manager> findByUserUserId(Integer userId);
 
-    // 🔹 Get all non-deleted managers
+    // Fetch all managers except soft-deleted ones
     List<Manager> findByStatusNot(ManagerStatus status);
-
-    // 🔹 Get manager by id (exclude deleted)
-    Optional<Manager> findByManagerIdAndStatusNot(Integer managerId, ManagerStatus status);
 
 }
