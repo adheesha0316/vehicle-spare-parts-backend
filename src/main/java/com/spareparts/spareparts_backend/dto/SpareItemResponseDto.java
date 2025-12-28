@@ -1,6 +1,5 @@
 package com.spareparts.spareparts_backend.dto;
 
-import com.spareparts.spareparts_backend.enums.AdminApprovalStatus;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,31 +11,29 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SpareItemDto {
+public class SpareItemResponseDto {
+
     private Integer spareItemId;
     private String name;
     private String description;
     private String category;
     private Double price;
 
-    // e.g., "IN_STOCK", "OUT_OF_STOCK" (can change to enum later)
+    // e.g., "IN_STOCK" or "OUT_OF_STOCK"
     private String stockStatus;
 
-    // 1-5 uploaded image paths
+    // URLs or relative paths of uploaded images
     private List<String> imagePaths;
 
-    // Item soft delete / active status
-    private SpareItemStatus status; // PENDING, APPROVED, DELETED
-
-    // Admin approval status for updates/deletes
-    private AdminApprovalStatus approvalStatus; // PENDING, APPROVED, REJECTED
+    // Status: PENDING, APPROVED, DELETED
+    private SpareItemStatus status;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Reference to the manager who added it
+    // Manager who added the item
     private Integer managerId;
 
-    // Role of the user who added it (MANAGER / ADMIN)
-    private String addedByRole;
+    // Optional: who approved it (Admin id) if needed
+    private Integer approvedByAdminId;
 }
