@@ -112,6 +112,16 @@ public class ManagerController {
     }
 
     // ============================
+    // RESTORE MANAGER PROFILE (ADMIN)
+    // ============================
+    @PatchMapping("/restore/{managerId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> restoreManager(@PathVariable Integer managerId) {
+        managerService.restoreManagerProfile(managerId);
+        return ResponseEntity.ok("Manager restored successfully");
+    }
+
+    // ============================
     // GET MANAGER BY ID (ADMIN)
     // ============================
     @GetMapping("/{managerId}")

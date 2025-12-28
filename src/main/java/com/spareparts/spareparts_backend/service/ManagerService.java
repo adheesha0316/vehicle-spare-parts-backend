@@ -20,6 +20,9 @@ public interface ManagerService {
     // ---------------- SOFT DELETE ---------------- //
     void softDeleteManager(Integer managerId);
 
+    // ---------------- RESTORE DELETED MANAGER ---------------- //
+    ManagerDto restoreManagerProfile(Integer managerId);
+
 
     // ---------------- GET ---------------- //
     ManagerDto getManagerById(Integer managerId);

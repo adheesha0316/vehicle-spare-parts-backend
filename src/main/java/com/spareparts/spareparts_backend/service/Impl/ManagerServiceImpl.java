@@ -104,6 +104,22 @@ public class ManagerServiceImpl implements ManagerService {
         managerRepo.save(manager);
     }
 
+    @Override
+    public ManagerDto restoreManagerProfile(Integer managerId) {
+        Manager manager = managerRepo.findById(managerId)
+                .orElseThrow(() -> new RuntimeException("Manager not found"));
+
+        if (manager.getStatus() != ManagerStatus.DELETED) {
+            throw new RuntimeException("Manager is not deleted");
+        }
+
+        manager.setStatus(ManagerStatus.APPROVED); // or PENDING if you want admin to approve again
+        manager.setUpdatedAt(LocalDateTime.now());
+
+        Manager restored = managerRepo.save(manager);
+        return modelMapper.map(restored, ManagerDto.class);
+    }
+
 
     @Override
     public ManagerDto getManagerById(Integer managerId) {
