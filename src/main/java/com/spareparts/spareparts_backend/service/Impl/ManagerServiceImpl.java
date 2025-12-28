@@ -97,6 +97,11 @@ public class ManagerServiceImpl implements ManagerService {
     public void deleteManagerProfile(Integer managerId) {
         Manager manager = managerRepo.findById(managerId)
                 .orElseThrow(() -> new RuntimeException("Manager not found"));
+
+        deleteFileIfExists(manager.getNicFrontImage());
+        deleteFileIfExists(manager.getNicBackImage());
+        deleteFileIfExists(manager.getProfileImage());
+
         managerRepo.delete(manager);
     }
 
@@ -164,5 +169,19 @@ public class ManagerServiceImpl implements ManagerService {
         zos.putNextEntry(new ZipEntry(zipEntryName));
         Files.copy(path, zos);
         zos.closeEntry();
+    }
+
+
+    private void deleteFileIfExists(String filePath) {
+        if (filePath == null || filePath.isBlank()) return;
+
+        try {
+            Path path = Paths.get(filePath);
+            if (Files.exists(path)) {
+                Files.delete(path);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to delete file: " + filePath, e);
+        }
     }
 }
