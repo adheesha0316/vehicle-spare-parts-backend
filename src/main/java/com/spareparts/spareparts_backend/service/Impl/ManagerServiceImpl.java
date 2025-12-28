@@ -47,15 +47,13 @@ public class ManagerServiceImpl implements ManagerService {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // ================= VALIDATIONS =================
         if (user.getRole() != Role.MANAGER) {
-            throw new RuntimeException("Only MANAGER role users can create manager profile");
+            throw new RuntimeException("User is not a MANAGER");
         }
 
         if (user.getStatus() != UserStatus.APPROVED) {
             throw new RuntimeException("User is not approved by ADMIN");
         }
-        // =================================================
 
         Manager manager = modelMapper.map(managerDto, Manager.class);
         manager.setUser(user);
@@ -71,8 +69,7 @@ public class ManagerServiceImpl implements ManagerService {
         if (profileImage != null && !profileImage.isEmpty())
             manager.setProfileImage(storeFile(profileImage, "profileImg"));
 
-        Manager saved = managerRepo.save(manager);
-        return modelMapper.map(saved, ManagerDto.class);
+        return modelMapper.map(managerRepo.save(manager), ManagerDto.class);
     }
 
     @Override
@@ -80,7 +77,11 @@ public class ManagerServiceImpl implements ManagerService {
         Manager manager = managerRepo.findById(managerId)
                 .orElseThrow(() -> new RuntimeException("Manager not found"));
 
-        modelMapper.map(managerDto, manager); // update fields from DTO
+        // Map only safe fields manually (do NOT touch manager.user)
+        manager.setFullName(managerDto.getFullName());
+        manager.setPhone(managerDto.getPhone());
+        manager.setAddress(managerDto.getAddress());
+        manager.setNicNumber(managerDto.getNicNumber());
         manager.setUpdatedAt(LocalDateTime.now());
         manager.setStatus(ManagerStatus.PENDING); // require admin approval again
 
