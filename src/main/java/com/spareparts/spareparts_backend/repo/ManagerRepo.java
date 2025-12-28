@@ -15,4 +15,6 @@ public interface ManagerRepo extends JpaRepository<Manager,Integer> {
     // Fetch all managers except soft-deleted ones
     List<Manager> findByStatusNot(ManagerStatus status);
 
+    Optional<Manager> findByManagerIdAndStatusNot(Integer managerId, ManagerStatus status);
+
 }

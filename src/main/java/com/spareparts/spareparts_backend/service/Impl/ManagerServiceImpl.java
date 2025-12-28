@@ -113,8 +113,7 @@ public class ManagerServiceImpl implements ManagerService {
             throw new RuntimeException("Manager is not deleted");
         }
 
-        // Restore as APPROVED or PENDING
-        manager.setStatus(ManagerStatus.APPROVED);
+        manager.setStatus(ManagerStatus.PENDING); // or APPROVED depending on your logic
         manager.setUpdatedAt(LocalDateTime.now());
 
         return modelMapper.map(managerRepo.save(manager), ManagerDto.class);
@@ -123,7 +122,7 @@ public class ManagerServiceImpl implements ManagerService {
 
     @Override
     public ManagerDto getManagerById(Integer managerId) {
-        Manager manager = managerRepo.findById(managerId)
+        Manager manager = managerRepo.findByManagerIdAndStatusNot(managerId, ManagerStatus.DELETED)
                 .orElseThrow(() -> new RuntimeException("Manager not found"));
         return modelMapper.map(manager, ManagerDto.class);
     }
@@ -146,12 +145,8 @@ public class ManagerServiceImpl implements ManagerService {
 
     @Override
     public Resource downloadNICImagesAsZip(Integer managerId) {
-        Manager manager = managerRepo.findById(managerId)
-                .orElseThrow(() -> new RuntimeException("Manager not found"));
-
-        if (manager.getStatus() == ManagerStatus.DELETED) {
-            throw new RuntimeException("Cannot download NIC images for a deleted manager");
-        }
+        Manager manager = managerRepo.findByManagerIdAndStatusNot(managerId, ManagerStatus.DELETED)
+                .orElseThrow(() -> new RuntimeException("Cannot download NIC images for a deleted manager"));
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              ZipOutputStream zos = new ZipOutputStream(baos)) {

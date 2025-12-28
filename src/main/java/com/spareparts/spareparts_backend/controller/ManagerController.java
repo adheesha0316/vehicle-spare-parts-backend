@@ -116,9 +116,9 @@ public class ManagerController {
     // ============================
     @PatchMapping("/restore/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ManagerDto> restoreManager(@PathVariable Integer managerId) {
-        ManagerDto restored = managerService.restoreManagerProfile(managerId);
-        return ResponseEntity.ok(restored);
+    public ResponseEntity<String> restoreManager(@PathVariable Integer managerId) {
+        managerService.restoreManagerProfile(managerId); // sets status = APPROVED or PENDING
+        return ResponseEntity.ok("Manager restored successfully");
     }
 
     // ============================
