@@ -129,6 +129,12 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
     }
 
+    @Override
+    public User getUserEntityById(Integer userId) {
+        return userRepo.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+    }
+
     // ---------------- HELPER: Convert User to DTO ---------------- //
     private UserDtoReturn toUserDtoReturn(User user) {
         return new UserDtoReturn(user.getEmail(), user.getStatus());
