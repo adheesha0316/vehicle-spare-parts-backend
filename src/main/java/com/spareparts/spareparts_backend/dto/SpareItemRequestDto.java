@@ -18,6 +18,7 @@ public class SpareItemRequestDto {
     private String description;
     private String category;
     private Double price;
+    private Integer quantity;
 
     // e.g., "IN_STOCK", "OUT_OF_STOCK"
     private String stockStatus;
