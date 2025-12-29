@@ -14,6 +14,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -26,7 +28,15 @@ public class AuthController {
 
     // ---------------- REGISTER ---------------- //
     @PostMapping("/register")
-    public ResponseEntity<UserDtoReturn> registerUser(@RequestBody UserDto userDto) {
+    public ResponseEntity<?> registerUser(@RequestBody UserDto userDto) {
+
+        // Check if email already exists
+        if (userService.existsByEmail(userDto.getEmail())) {
+            return ResponseEntity.status(409) // HTTP 409 Conflict
+                    .body(Map.of("error", "Email already exists"));
+        }
+
+        // Register the user
         UserDtoReturn registeredUser = userService.registerUser(
                 User.builder()
                         .username(userDto.getUsername())
@@ -38,6 +48,7 @@ public class AuthController {
 
         return ResponseEntity.ok(registeredUser);
     }
+
 
     // ---------------- LOGIN ---------------- //
     @PostMapping("/login")

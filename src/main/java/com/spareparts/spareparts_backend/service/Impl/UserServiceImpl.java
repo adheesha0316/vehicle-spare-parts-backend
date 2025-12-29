@@ -6,6 +6,7 @@ import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.Role;
 import com.spareparts.spareparts_backend.enums.UserStatus;
+import com.spareparts.spareparts_backend.exception.EmailAlreadyExistsException;
 import com.spareparts.spareparts_backend.repo.UserRepo;
 import com.spareparts.spareparts_backend.service.UserService;
 import jakarta.transaction.Transactional;
@@ -30,7 +31,7 @@ public class UserServiceImpl implements UserService {
     public UserDtoReturn registerUser(User user) {
         // Check if email already exists
         if (userRepo.findByEmail(user.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already exists");
+            throw new EmailAlreadyExistsException("Email already exists");
         }
 
         // Encode password
@@ -123,6 +124,8 @@ public class UserServiceImpl implements UserService {
         return toUserDtoReturn(userRepo.save(user));
     }
 
+
+
     @Override
     public User getUserEntityByEmail(String email) {
         return userRepo.findByEmail(email)
@@ -133,6 +136,11 @@ public class UserServiceImpl implements UserService {
     public User getUserEntityById(Integer userId) {
         return userRepo.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return userRepo.findByEmail(email).isPresent();
     }
 
     // ---------------- HELPER: Convert User to DTO ---------------- //

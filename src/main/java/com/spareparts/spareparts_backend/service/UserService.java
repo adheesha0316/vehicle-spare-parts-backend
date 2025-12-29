@@ -36,7 +36,10 @@ public interface UserService {
     User getUserEntityByEmail(String email);
 
     // UserService.java
-// Get full User entity by ID (for manager creation or approval checks)
+    // Get full User entity by ID (for manager creation or approval checks)
     User getUserEntityById(Integer userId);
+
+    // New method to check email
+    boolean existsByEmail(String email);
 
 }

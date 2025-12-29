@@ -67,7 +67,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
 
         // ---- ADD APPROVED CHECK ----
         if (!user.getStatus().equals(UserStatus.APPROVED)) {
-            throw new AccessDeniedException("User not approved");
+            //throw new AccessDeniedException("User not approved");
         }
 
         UserDetails userDetails =
