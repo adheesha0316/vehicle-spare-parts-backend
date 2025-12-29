@@ -64,6 +64,11 @@ public class SpareItem {
     @JoinColumn(name = "manager_id")
     private Manager manager;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by_admin_id")
+    private User approvedByAdmin;
+
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -71,6 +76,7 @@ public class SpareItem {
     // Used when MANAGER updates → ADMIN approval required
 
     private String pendingName;
+    private String pendingBrand; // manager updated brand waiting for admin approval
     private String pendingDescription;
     private Double pendingPrice;
     private Integer pendingQuantity;

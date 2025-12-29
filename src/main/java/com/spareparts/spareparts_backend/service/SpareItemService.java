@@ -7,48 +7,24 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface SpareItemService {
-    // ================= CREATE =================
 
-    // MANAGER / ADMIN
-    SpareItemResponseDto createSpareItem(
-            Integer managerId,
-            SpareItemRequestDto requestDto,
-            List<MultipartFile> images
-    );
+    // ---------------- CREATE ----------------
+    SpareItemResponseDto createSpareItem(Integer managerId, SpareItemRequestDto requestDto, List<MultipartFile> images);
 
-    // ================= UPDATE =================
+    // ---------------- UPDATE ----------------
+    SpareItemResponseDto updateSpareItemByManager(Integer spareItemId, SpareItemRequestDto requestDto, List<MultipartFile> images);
+    SpareItemResponseDto updateSpareItemByAdmin(Integer spareItemId, SpareItemRequestDto requestDto, List<MultipartFile> images);
 
-    // MANAGER (requires ADMIN approval)
-    SpareItemResponseDto updateSpareItemByManager(
-            Integer spareItemId,
-            SpareItemRequestDto requestDto,
-            List<MultipartFile> images
-    );
+    // ---------------- DELETE / RESTORE ----------------
+    void deleteSpareItem(Integer spareItemId);  // Soft delete
+    SpareItemResponseDto restoreSpareItem(Integer spareItemId);
 
-    // ADMIN (direct update)
-    SpareItemResponseDto updateSpareItemByAdmin(
-            Integer spareItemId,
-            SpareItemRequestDto requestDto,
-            List<MultipartFile> images
-    );
+    // ---------------- APPROVE ----------------
+    SpareItemResponseDto approveSpareItemUpdate(Integer spareItemId, Integer adminId);
 
-    // ================= DELETE =================
-
-    // ADMIN only (soft delete)
-    void deleteSpareItem(Integer spareItemId);
-
-    // ================= APPROVAL =================
-
-    // ADMIN approves manager update
-    SpareItemResponseDto approveSpareItemUpdate(Integer spareItemId);
-
-    // ================= GET =================
-
+    // ---------------- GET ----------------
     SpareItemResponseDto getSpareItemById(Integer spareItemId);
-
-    List<SpareItemResponseDto> getAllApprovedSpareItems(); // CUSTOMER
-
-    List<SpareItemResponseDto> getAllSpareItemsForAdmin(); // ADMIN
-
-    List<SpareItemResponseDto> getSpareItemsByManager(Integer managerId);
+    List<SpareItemResponseDto> getAllApprovedSpareItems(); // For customers
+    List<SpareItemResponseDto> getAllSpareItemsForAdmin(); // For admin
+    List<SpareItemResponseDto> getSpareItemsByManager(Integer managerId); // For manager
 }
