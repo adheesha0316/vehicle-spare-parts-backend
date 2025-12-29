@@ -15,6 +15,7 @@ public class SpareItemResponseDto {
 
     private Integer spareItemId;
     private String name;
+    private String brand;
     private String description;
     private String category;
     private Double price;

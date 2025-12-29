@@ -14,6 +14,7 @@ import java.util.List;
 public class SpareItemRequestDto {
 
     private String name;
+    private String brand;
     private String description;
     private String category;
     private Double price;
