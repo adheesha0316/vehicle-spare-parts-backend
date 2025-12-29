@@ -143,18 +143,32 @@ public class SpareItemServiceImpl implements SpareItemService {
 
     @Override
     public SpareItemResponseDto approveSpareItemUpdate(Integer spareItemId, Integer adminId) {
+        // Get the spare item (must exist and not be deleted)
         SpareItem spareItem = getActiveSpareItem(spareItemId);
 
+        // Get the admin approving this update
         User admin = userRepo.findById(adminId)
                 .orElseThrow(() -> new RuntimeException("Admin not found"));
 
-        // Apply pending changes
-        spareItem.setName(spareItem.getPendingName());
-        spareItem.setBrand(spareItem.getPendingBrand());
-        spareItem.setDescription(spareItem.getPendingDescription());
-        spareItem.setPrice(spareItem.getPendingPrice());
-        spareItem.setQuantity(spareItem.getPendingQuantity());
-        spareItem.setImages(spareItem.getPendingImages());
+        // Apply pending changes if they exist
+        if (spareItem.getPendingName() != null) {
+            spareItem.setName(spareItem.getPendingName());
+        }
+        if (spareItem.getPendingBrand() != null) {
+            spareItem.setBrand(spareItem.getPendingBrand());
+        }
+        if (spareItem.getPendingDescription() != null) {
+            spareItem.setDescription(spareItem.getPendingDescription());
+        }
+        if (spareItem.getPendingPrice() != null) {
+            spareItem.setPrice(spareItem.getPendingPrice());
+        }
+        if (spareItem.getPendingQuantity() != null) {
+            spareItem.setQuantity(spareItem.getPendingQuantity());
+        }
+        if (spareItem.getPendingImages() != null && !spareItem.getPendingImages().isEmpty()) {
+            spareItem.setImages(new ArrayList<>(spareItem.getPendingImages()));
+        }
 
         // Clear pending fields
         spareItem.setPendingName(null);
@@ -164,11 +178,15 @@ public class SpareItemServiceImpl implements SpareItemService {
         spareItem.setPendingQuantity(null);
         spareItem.setPendingImages(new ArrayList<>());
 
+        // Set status and approved admin
         spareItem.setStatus(SpareItemStatus.APPROVED);
         spareItem.setApprovedByAdmin(admin);
         spareItem.setUpdatedAt(LocalDateTime.now());
 
+        // Save changes
         spareItemRepo.save(spareItem);
+
+        // Return the response DTO
         return mapToResponseDto(spareItem);
     }
 
