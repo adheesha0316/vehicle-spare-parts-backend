@@ -205,15 +205,26 @@ public class SpareItemServiceImpl implements SpareItemService {
 
     @Override
     public List<SpareItemResponseDto> getAllSpareItemsForAdmin() {
-        return spareItemRepo.findAll().stream().map(this::mapToResponseDto).toList();
+        // Directly map all spare items to DTOs without multiple streams
+        List<SpareItem> items = spareItemRepo.findAll();
+        List<SpareItemResponseDto> response = new ArrayList<>(items.size());
+        for (SpareItem item : items) {
+            response.add(mapToResponseDto(item));
+        }
+        return response;
     }
 
     @Override
     public List<SpareItemResponseDto> getSpareItemsByManager(Integer managerId) {
-        List<SpareItem> items = spareItemRepo.findAll().stream()
-                .filter(item -> item.getManager() != null && item.getManager().getManagerId().equals(managerId))
-                .toList();
-        return items.stream().map(this::mapToResponseDto).toList();
+        // Filter by manager and map to DTOs
+        List<SpareItem> items = spareItemRepo.findAll();
+        List<SpareItemResponseDto> response = new ArrayList<>();
+        for (SpareItem item : items) {
+            if (item.getManager() != null && item.getManager().getManagerId().equals(managerId)) {
+                response.add(mapToResponseDto(item));
+            }
+        }
+        return response;
     }
 
     // ================= HELPERS =================
