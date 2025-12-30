@@ -1,7 +1,11 @@
 package com.spareparts.spareparts_backend.config;
 
+import com.spareparts.spareparts_backend.entity.Manager;
 import com.spareparts.spareparts_backend.entity.User;
+import com.spareparts.spareparts_backend.enums.ManagerStatus;
+import com.spareparts.spareparts_backend.enums.Role;
 import com.spareparts.spareparts_backend.enums.UserStatus;
+import com.spareparts.spareparts_backend.repo.ManagerRepo;
 import com.spareparts.spareparts_backend.service.Impl.CustomUserDetailsService;
 
 import com.spareparts.spareparts_backend.service.UserService;
@@ -36,6 +40,9 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private final UserService userService;
 
+    @Autowired
+    private final ManagerRepo managerRepo;
+
 
     // -------- PUBLIC ENDPOINTS -------- //
     @Override
@@ -56,20 +63,47 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         if (!jwtTokenGenerator.validateToken(token)) {
-            filterChain.doFilter(request, response);
+            sendError(response, 401, "Invalid JWT token");
             return;
         }
 
         String email = jwtTokenGenerator.extractEmail(token);
-
-        // Fetch the user from database
         User user = userService.getUserEntityByEmail(email);
 
-        // ---- ADD APPROVED CHECK ----
-        if (!user.getStatus().equals(UserStatus.APPROVED)) {
-            //throw new AccessDeniedException("User not approved");
+        // ---------- USER APPROVAL ----------
+        if (user.getStatus() != UserStatus.APPROVED) {
+            sendError(response, 403, "User account not approved");
+            return;
         }
 
+        // ---------- MANAGER CHECK ----------
+        if (user.getRole() == Role.MANAGER) {
+
+            Manager manager = managerRepo.findByUserUserId(user.getUserId())
+                    .orElse(null);
+
+            if (manager == null) {
+                sendError(response, 403, "Manager profile not found");
+                return;
+            }
+
+            if (manager.getStatus() == ManagerStatus.DELETED) {
+                sendError(response, 403, "Manager account deleted");
+                return;
+            }
+
+            if (manager.getStatus() == ManagerStatus.SUSPENDED) {
+                sendError(response, 403, "Manager account suspended");
+                return;
+            }
+
+            if (manager.getStatus() != ManagerStatus.APPROVED) {
+                sendError(response, 403, "Manager not approved");
+                return;
+            }
+        }
+
+        // ---------- AUTH SUCCESS ----------
         UserDetails userDetails =
                 userDetailsService.loadUserByUsername(email);
 
@@ -85,7 +119,22 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
         filterChain.doFilter(request, response);
+    }
+
+    // ---------- JSON ERROR ----------
+    private void sendError(HttpServletResponse response, int status, String message)
+            throws IOException {
+
+        response.setStatus(status);
+        response.setContentType("application/json");
+
+        response.getWriter().write("""
+            {
+              "success": false,
+              "status": %d,
+              "message": "%s"
+            }
+            """.formatted(status, message));
     }
 }
