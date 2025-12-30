@@ -5,6 +5,7 @@ import com.spareparts.spareparts_backend.dto.LoginResponseDto;
 import com.spareparts.spareparts_backend.dto.UserDto;
 import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
+import com.spareparts.spareparts_backend.enums.UserStatus;
 import com.spareparts.spareparts_backend.service.UserService;
 import com.spareparts.spareparts_backend.utill.JWTTokenGenerator;
 import lombok.RequiredArgsConstructor;
@@ -52,9 +53,9 @@ public class AuthController {
 
     // ---------------- LOGIN ---------------- //
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDto> loginUser(@RequestBody LoginRequestDto loginRequestDto) {
+    public ResponseEntity<?> loginUser(@RequestBody LoginRequestDto loginRequestDto) {
         try {
-            // Authenticate user
+            // Authenticate
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             loginRequestDto.getEmail(),
@@ -62,29 +63,28 @@ public class AuthController {
                     )
             );
 
-            // Get safe login DTO (without JWT)
-            LoginResponseDto loginResponse = userService.loginUser(loginRequestDto);
-
-            // Get full User entity to generate JWT
+            // Get full User entity
             User user = userService.getUserEntityByEmail(loginRequestDto.getEmail());
-            String token = jwtTokenGenerator.generateToken(user);
 
-            // Set token
+            // Check if approved
+            if (user.getStatus() != UserStatus.APPROVED) {
+                return ResponseEntity.status(403)
+                        .body(Map.of("error", "User account not approved"));
+            }
+
+            // Normal login response
+            LoginResponseDto loginResponse = userService.loginUser(loginRequestDto);
+            String token = jwtTokenGenerator.generateToken(user);
             loginResponse.setToken(token);
 
             return ResponseEntity.ok(loginResponse);
 
         } catch (AuthenticationException e) {
-            return ResponseEntity.status(401).build();
+            return ResponseEntity.status(401)
+                    .body(Map.of("error", "Invalid email or password"));
         }
     }
 
-    // ---------------- LOGIN RESPONSE DTO ---------------- //
-    @lombok.Data
-    @lombok.AllArgsConstructor
-    static class LoginResponse {
-        private String email;
-        private String status;  // Changed from role → status, matches UserDtoReturn
-        private String token;
-    }
 }
+
+
