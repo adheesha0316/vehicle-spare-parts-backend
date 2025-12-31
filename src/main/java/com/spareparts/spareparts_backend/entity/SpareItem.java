@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.entity;
 
+import com.spareparts.spareparts_backend.enums.SpareItemCategory;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
 import jakarta.persistence.*;
@@ -29,8 +30,9 @@ public class SpareItem {
     @Column(length = 1000)
     private String description;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String category;
+    private SpareItemCategory category;
 
     // Customers care about brand
     @Column(nullable = false)
@@ -80,6 +82,9 @@ public class SpareItem {
     private String pendingDescription;
     private Double pendingPrice;
     private Integer pendingQuantity;
+
+    @Enumerated(EnumType.STRING)
+    private SpareItemCategory pendingCategory;
 
     @ElementCollection
     @CollectionTable(

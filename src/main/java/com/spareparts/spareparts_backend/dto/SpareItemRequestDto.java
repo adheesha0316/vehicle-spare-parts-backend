@@ -1,6 +1,7 @@
 package com.spareparts.spareparts_backend.dto;
 
 
+import com.spareparts.spareparts_backend.enums.SpareItemCategory;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,7 +17,7 @@ public class SpareItemRequestDto {
     private String name;
     private String brand;
     private String description;
-    private String category;
+    private SpareItemCategory category;
     private Double price;
     private Integer quantity;
 

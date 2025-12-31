@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.controller;
 
+import com.spareparts.spareparts_backend.dto.CategoryResponseDto;
 import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
 import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
 import com.spareparts.spareparts_backend.service.SpareItemService;
@@ -113,4 +114,12 @@ public class SpareItemController {
         List<SpareItemResponseDto> response = spareItemService.getSpareItemsByManager(managerId);
         return ResponseEntity.ok(response);
     }
+
+    // ---------------- GET CATEGORY ----------------
+    @GetMapping("/categories")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<List<CategoryResponseDto>> getAllCategories() {
+        return ResponseEntity.ok(spareItemService.getAllCategories());
+    }
+
 }

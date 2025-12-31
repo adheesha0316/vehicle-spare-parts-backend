@@ -1,10 +1,12 @@
 package com.spareparts.spareparts_backend.service.Impl;
 
+import com.spareparts.spareparts_backend.dto.CategoryResponseDto;
 import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
 import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
 import com.spareparts.spareparts_backend.entity.Manager;
 import com.spareparts.spareparts_backend.entity.SpareItem;
 import com.spareparts.spareparts_backend.entity.User;
+import com.spareparts.spareparts_backend.enums.SpareItemCategory;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
 import com.spareparts.spareparts_backend.repo.ManagerRepo;
@@ -25,6 +27,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -75,6 +78,8 @@ public class SpareItemServiceImpl implements SpareItemService {
         spareItem.setPendingDescription(requestDto.getDescription());
         spareItem.setPendingPrice(requestDto.getPrice());
         spareItem.setPendingQuantity(requestDto.getQuantity());
+
+        spareItem.setPendingCategory(requestDto.getCategory());
 
         if (images != null && !images.isEmpty()) {
             validateImages(images);
@@ -166,6 +171,9 @@ public class SpareItemServiceImpl implements SpareItemService {
         if (spareItem.getPendingQuantity() != null) {
             spareItem.setQuantity(spareItem.getPendingQuantity());
         }
+        if (spareItem.getPendingCategory() != null) {
+            spareItem.setCategory(spareItem.getPendingCategory());
+        }
         if (spareItem.getPendingImages() != null && !spareItem.getPendingImages().isEmpty()) {
             spareItem.setImages(new ArrayList<>(spareItem.getPendingImages()));
         }
@@ -176,6 +184,7 @@ public class SpareItemServiceImpl implements SpareItemService {
         spareItem.setPendingDescription(null);
         spareItem.setPendingPrice(null);
         spareItem.setPendingQuantity(null);
+        spareItem.setPendingCategory(null);
         spareItem.setPendingImages(new ArrayList<>());
 
         // Set status and approved admin
@@ -227,6 +236,18 @@ public class SpareItemServiceImpl implements SpareItemService {
         return response;
     }
 
+    @Override
+    public List<CategoryResponseDto> getAllCategories() {
+        return Arrays.stream(SpareItemCategory.values())
+                .map(category -> new CategoryResponseDto(
+                        category.name(),        // key
+                        category.getLabelEn(),  // English label
+                        category.getLabelSi()   // Sinhala label
+                ))
+                .toList();
+    }
+
+
     // ================= HELPERS =================
     private SpareItem getActiveSpareItem(Integer id) {
         return spareItemRepo.findBySpareItemIdAndStatusNot(id, SpareItemStatus.DELETED)
@@ -260,7 +281,7 @@ public class SpareItemServiceImpl implements SpareItemService {
                 item.getName(),
                 item.getBrand(),
                 item.getDescription(),
-                item.getCategory(),
+                item.getCategory().name(),
                 item.getPrice(),
                 item.getStockStatus() != null ? item.getStockStatus().name() : null,
                 item.getImages(),
