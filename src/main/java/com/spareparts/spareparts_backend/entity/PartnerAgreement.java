@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.entity;
 
+import com.spareparts.spareparts_backend.enums.PartnerAgreementStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,12 +22,25 @@ public class PartnerAgreement {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer agreementId;
 
+    @Column(nullable = false)
     private String filePath;      // Uploaded PDF path
+
+    @Column(nullable = false)
     private String version;       // e.g., v1.0, v2.0
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
+
     private String description;   // Optional notes about this version
 
-    // Partners who agreed to this version (optional for audit)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PartnerAgreementStatus status; // ACTIVE, REMOVED
+
+    @Column(nullable = false)
+    private Boolean isLatest;     // true if this is the latest version
+
+    // Partners who agreed to this version (for audit)
     @OneToMany(mappedBy = "agreedAgreement")
     private List<Partner> partners = new ArrayList<>();
 }
