@@ -1,5 +1,7 @@
 package com.spareparts.spareparts_backend.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spareparts.spareparts_backend.dto.CategoryResponseDto;
 import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
 import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
@@ -19,16 +21,23 @@ import java.util.List;
 public class SpareItemController {
 
     private final SpareItemService spareItemService;
+    private final ObjectMapper mapper;
+
 
     // ---------------- CREATE ----------------
     @PostMapping("/create")
     @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
     public ResponseEntity<SpareItemResponseDto> createSpareItem(
-            @RequestParam Integer managerId,
-            @RequestPart("spareItem") SpareItemRequestDto requestDto,
-            @RequestPart("images") List<MultipartFile> images
-    ) {
+            @RequestParam("managerId") Integer managerId,
+            @RequestPart("spareItem") String spareItemJson,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
+    ) throws Exception {
+
+        // Convert JSON string to DTO
+        SpareItemRequestDto requestDto = mapper.readValue(spareItemJson, SpareItemRequestDto.class);
+
         SpareItemResponseDto response = spareItemService.createSpareItem(managerId, requestDto, images);
+
         return ResponseEntity.ok(response);
     }
 
@@ -37,11 +46,17 @@ public class SpareItemController {
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<SpareItemResponseDto> updateByManager(
             @PathVariable Integer spareItemId,
-            @RequestPart("spareItem") SpareItemRequestDto requestDto,
+            @RequestPart("spareItem") String spareItemJson,
             @RequestPart(value = "images", required = false) List<MultipartFile> images
-    ) {
-        SpareItemResponseDto response = spareItemService.updateSpareItemByManager(spareItemId, requestDto, images);
-        return ResponseEntity.ok(response);
+    ) throws JsonProcessingException {
+
+        // Parse JSON string to DTO
+        SpareItemRequestDto requestDto = mapper.readValue(spareItemJson, SpareItemRequestDto.class);
+
+        // Optional: check if the item exists / status
+        SpareItemResponseDto updatedSpareItem = spareItemService.updateSpareItemByManager(spareItemId, requestDto, images);
+
+        return ResponseEntity.ok(updatedSpareItem);
     }
 
     // ---------------- UPDATE BY ADMIN ----------------
@@ -49,10 +64,15 @@ public class SpareItemController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SpareItemResponseDto> updateByAdmin(
             @PathVariable Integer spareItemId,
-            @RequestPart("spareItem") SpareItemRequestDto requestDto,
+            @RequestPart("spareItem") String spareItemJson,
             @RequestPart(value = "images", required = false) List<MultipartFile> images
-    ) {
+    ) throws JsonProcessingException {
+
+        // Parse JSON string into DTO
+        SpareItemRequestDto requestDto = mapper.readValue(spareItemJson, SpareItemRequestDto.class);
+
         SpareItemResponseDto response = spareItemService.updateSpareItemByAdmin(spareItemId, requestDto, images);
+
         return ResponseEntity.ok(response);
     }
 
@@ -84,7 +104,7 @@ public class SpareItemController {
     }
 
     // ---------------- GET BY ID ----------------
-    @GetMapping("/{spareItemId}")
+    @GetMapping("/get/{spareItemId}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<SpareItemResponseDto> getById(@PathVariable Integer spareItemId) {
         SpareItemResponseDto response = spareItemService.getSpareItemById(spareItemId);
@@ -116,10 +136,19 @@ public class SpareItemController {
     }
 
     // ---------------- GET CATEGORY ----------------
-    @GetMapping("/categories")
+    @GetMapping("/categories/all")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<CategoryResponseDto>> getAllCategories() {
         return ResponseEntity.ok(spareItemService.getAllCategories());
     }
+
+    // ---------------- GET APPROVED CATEGORY ----------------
+    @GetMapping("/all/approved/category")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('CUSTOMER')")
+    public ResponseEntity<List<SpareItemResponseDto>> getApprovedByCategory(@RequestParam String category) {
+        List<SpareItemResponseDto> response = spareItemService.getApprovedByCategory(category);
+        return ResponseEntity.ok(response);
+    }
+
 
 }

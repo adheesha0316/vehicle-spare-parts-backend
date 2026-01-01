@@ -15,7 +15,6 @@ import com.spareparts.spareparts_backend.repo.UserRepo;
 import com.spareparts.spareparts_backend.service.SpareItemService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,9 +25,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 @Service
 @Transactional
@@ -37,7 +34,6 @@ public class SpareItemServiceImpl implements SpareItemService {
 
     private final SpareItemRepo spareItemRepo;
     private final ManagerRepo managerRepo;
-    private final ModelMapper modelMapper;
     private final UserRepo userRepo;
 
     private static final String UPLOAD_DIR = "uploads/spareItem/";
@@ -49,6 +45,12 @@ public class SpareItemServiceImpl implements SpareItemService {
         Manager manager = managerRepo.findById(managerId)
                 .orElseThrow(() -> new RuntimeException("Manager not found"));
 
+        StockStatus stockStatus = parseStockStatus(requestDto.getStockStatus());
+
+        List<String> imagePaths = (images != null && !images.isEmpty())
+                ? storeImages(images)
+                : new ArrayList<>();
+
         SpareItem spareItem = SpareItem.builder()
                 .name(requestDto.getName())
                 .brand(requestDto.getBrand())
@@ -56,16 +58,17 @@ public class SpareItemServiceImpl implements SpareItemService {
                 .category(requestDto.getCategory())
                 .price(requestDto.getPrice())
                 .quantity(requestDto.getQuantity())
-                .stockStatus(StockStatus.valueOf(requestDto.getStockStatus()))
-                .status(SpareItemStatus.APPROVED) // Manager add → no admin approval needed
-                .images(storeImages(images))
+                .stockStatus(stockStatus)
+                .status(SpareItemStatus.APPROVED)
+                .images(imagePaths)
                 .manager(manager)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
 
         spareItemRepo.save(spareItem);
-        return mapToResponseDto(spareItem);    }
+        return mapToResponseDto(spareItem);
+    }
 
     // ================= UPDATE (MANAGER) =================
 
@@ -73,21 +76,7 @@ public class SpareItemServiceImpl implements SpareItemService {
     public SpareItemResponseDto updateSpareItemByManager(Integer spareItemId, SpareItemRequestDto requestDto, List<MultipartFile> images) {
         SpareItem spareItem = getActiveSpareItem(spareItemId);
 
-        spareItem.setPendingName(requestDto.getName());
-        spareItem.setPendingBrand(requestDto.getBrand());
-        spareItem.setPendingDescription(requestDto.getDescription());
-        spareItem.setPendingPrice(requestDto.getPrice());
-        spareItem.setPendingQuantity(requestDto.getQuantity());
-
-        spareItem.setPendingCategory(requestDto.getCategory());
-
-        if (images != null && !images.isEmpty()) {
-            validateImages(images);
-            spareItem.setPendingImages(storeImages(images));
-        }
-
-        spareItem.setStatus(SpareItemStatus.UPDATE_PENDING);
-        spareItem.setUpdatedAt(LocalDateTime.now());
+        applySpareItemUpdates(spareItem, requestDto, images);
 
         spareItemRepo.save(spareItem);
         return mapToResponseDto(spareItem);
@@ -99,20 +88,8 @@ public class SpareItemServiceImpl implements SpareItemService {
     public SpareItemResponseDto updateSpareItemByAdmin(Integer spareItemId, SpareItemRequestDto requestDto, List<MultipartFile> images) {
         SpareItem spareItem = getActiveSpareItem(spareItemId);
 
-        spareItem.setName(requestDto.getName());
-        spareItem.setBrand(requestDto.getBrand());
-        spareItem.setDescription(requestDto.getDescription());
-        spareItem.setCategory(requestDto.getCategory());
-        spareItem.setPrice(requestDto.getPrice());
-        spareItem.setQuantity(requestDto.getQuantity());
-
-        if (images != null && !images.isEmpty()) {
-            validateImages(images);
-            spareItem.setImages(storeImages(images));
-        }
-
+        applySpareItemUpdates(spareItem, requestDto, images);
         spareItem.setStatus(SpareItemStatus.APPROVED);
-        spareItem.setUpdatedAt(LocalDateTime.now());
 
         spareItemRepo.save(spareItem);
         return mapToResponseDto(spareItem);
@@ -141,61 +118,29 @@ public class SpareItemServiceImpl implements SpareItemService {
         spareItem.setStatus(SpareItemStatus.APPROVED);
         spareItem.setUpdatedAt(LocalDateTime.now());
         spareItemRepo.save(spareItem);
+
         return mapToResponseDto(spareItem);
     }
 
     // ================= APPROVE UPDATE =================
 
     @Override
-    public SpareItemResponseDto approveSpareItemUpdate(Integer spareItemId, Integer adminId) {
-        // Get the spare item (must exist and not be deleted)
+    public SpareItemResponseDto approveSpareItemUpdate(Integer spareItemId, Integer approverId) {
         SpareItem spareItem = getActiveSpareItem(spareItemId);
 
-        // Get the admin approving this update
-        User admin = userRepo.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("Admin not found"));
+        User approver = userRepo.findById(approverId)
+                .orElseThrow(() -> new RuntimeException("Approver not found"));
 
-        // Apply pending changes if they exist
-        if (spareItem.getPendingName() != null) {
-            spareItem.setName(spareItem.getPendingName());
-        }
-        if (spareItem.getPendingBrand() != null) {
-            spareItem.setBrand(spareItem.getPendingBrand());
-        }
-        if (spareItem.getPendingDescription() != null) {
-            spareItem.setDescription(spareItem.getPendingDescription());
-        }
-        if (spareItem.getPendingPrice() != null) {
-            spareItem.setPrice(spareItem.getPendingPrice());
-        }
-        if (spareItem.getPendingQuantity() != null) {
-            spareItem.setQuantity(spareItem.getPendingQuantity());
-        }
-        if (spareItem.getPendingCategory() != null) {
-            spareItem.setCategory(spareItem.getPendingCategory());
-        }
-        if (spareItem.getPendingImages() != null && !spareItem.getPendingImages().isEmpty()) {
-            spareItem.setImages(new ArrayList<>(spareItem.getPendingImages()));
+        // Only allow ADMIN or MANAGER
+        if (!(approver.getRole().name().equals("ADMIN") || approver.getRole().name().equals("MANAGER"))) {
+            throw new RuntimeException("User is not authorized to approve");
         }
 
-        // Clear pending fields
-        spareItem.setPendingName(null);
-        spareItem.setPendingBrand(null);
-        spareItem.setPendingDescription(null);
-        spareItem.setPendingPrice(null);
-        spareItem.setPendingQuantity(null);
-        spareItem.setPendingCategory(null);
-        spareItem.setPendingImages(new ArrayList<>());
-
-        // Set status and approved admin
         spareItem.setStatus(SpareItemStatus.APPROVED);
-        spareItem.setApprovedByAdmin(admin);
         spareItem.setUpdatedAt(LocalDateTime.now());
+        spareItem.setApprovedBy(approver);  // single field for both roles
 
-        // Save changes
         spareItemRepo.save(spareItem);
-
-        // Return the response DTO
         return mapToResponseDto(spareItem);
     }
 
@@ -208,32 +153,44 @@ public class SpareItemServiceImpl implements SpareItemService {
 
     @Override
     public List<SpareItemResponseDto> getAllApprovedSpareItems() {
-        List<SpareItem> items = spareItemRepo.findByStatusNot(SpareItemStatus.DELETED);
-        return items.stream().map(this::mapToResponseDto).toList();
+        return spareItemRepo.findByStatusNot(SpareItemStatus.DELETED)
+                .stream()
+                .map(this::mapToResponseDto)
+                .toList();
     }
+
+    // ---------------- GET APPROVED BY CATEGORY ----------------
+    @Override
+    public List<SpareItemResponseDto> getApprovedByCategory(String categoryKey) {
+        SpareItemCategory category;
+        try {
+            category = SpareItemCategory.valueOf(categoryKey.toUpperCase());
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid category: " + categoryKey);
+        }
+
+        return spareItemRepo.findByCategoryAndStatus(category, SpareItemStatus.APPROVED)
+                .stream()
+                .map(this::mapToResponseDto)
+                .toList();
+    }
+
 
     @Override
     public List<SpareItemResponseDto> getAllSpareItemsForAdmin() {
-        // Directly map all spare items to DTOs without multiple streams
-        List<SpareItem> items = spareItemRepo.findAll();
-        List<SpareItemResponseDto> response = new ArrayList<>(items.size());
-        for (SpareItem item : items) {
-            response.add(mapToResponseDto(item));
-        }
-        return response;
+        return spareItemRepo.findAll()
+                .stream()
+                .map(this::mapToResponseDto)
+                .toList();
     }
 
     @Override
     public List<SpareItemResponseDto> getSpareItemsByManager(Integer managerId) {
-        // Filter by manager and map to DTOs
-        List<SpareItem> items = spareItemRepo.findAll();
-        List<SpareItemResponseDto> response = new ArrayList<>();
-        for (SpareItem item : items) {
-            if (item.getManager() != null && item.getManager().getManagerId().equals(managerId)) {
-                response.add(mapToResponseDto(item));
-            }
-        }
-        return response;
+        return spareItemRepo
+                .findByManager_ManagerIdAndStatusNot(managerId, SpareItemStatus.DELETED)
+                .stream()
+                .map(this::mapToResponseDto)
+                .toList();
     }
 
     @Override
@@ -242,7 +199,7 @@ public class SpareItemServiceImpl implements SpareItemService {
                 .map(category -> new CategoryResponseDto(
                         category.name(),        // key
                         category.getLabelEn(),  // English label
-                        category.getLabelSi()   // Sinhala label
+                        category.getLabelSi()   // Sinhalese label
                 ))
                 .toList();
     }
@@ -254,18 +211,43 @@ public class SpareItemServiceImpl implements SpareItemService {
                 .orElseThrow(() -> new RuntimeException("Spare item not found"));
     }
 
-    private void validateImages(List<MultipartFile> images) {
-        if (images == null || images.isEmpty()) throw new RuntimeException("At least 1 image is required");
-        if (images.size() > 5) throw new RuntimeException("Maximum 5 images allowed");
+    private StockStatus parseStockStatus(String value) {
+        try {
+            return StockStatus.valueOf(value.toUpperCase());
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid stock status: " + value);
+        }
     }
+
+    private void applySpareItemUpdates(
+            SpareItem spareItem,
+            SpareItemRequestDto requestDto,
+            List<MultipartFile> images
+    ) {
+        spareItem.setName(requestDto.getName());
+        spareItem.setBrand(requestDto.getBrand());
+        spareItem.setDescription(requestDto.getDescription());
+        spareItem.setCategory(requestDto.getCategory());
+        spareItem.setPrice(requestDto.getPrice());
+        spareItem.setQuantity(requestDto.getQuantity());
+        spareItem.setStockStatus(parseStockStatus(requestDto.getStockStatus()));
+
+        if (images != null && !images.isEmpty()) {
+            spareItem.setImages(storeImages(images));
+        }
+
+        spareItem.setUpdatedAt(LocalDateTime.now());
+    }
+
 
     private List<String> storeImages(List<MultipartFile> images) {
         List<String> paths = new ArrayList<>();
         try {
             Files.createDirectories(Paths.get(UPLOAD_DIR));
             for (MultipartFile file : images) {
-                String filename = System.currentTimeMillis() + "_" + StringUtils.cleanPath(file.getOriginalFilename());
-                Path path = Paths.get(UPLOAD_DIR + filename);
+                String filename = System.currentTimeMillis() + "_" +
+                        StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
+                Path path = Paths.get(UPLOAD_DIR, filename);
                 Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
                 paths.add(path.toString());
             }
@@ -289,7 +271,7 @@ public class SpareItemServiceImpl implements SpareItemService {
                 item.getCreatedAt(),
                 item.getUpdatedAt(),
                 item.getManager() != null ? item.getManager().getManagerId() : null,
-                item.getApprovedByAdmin() != null ? item.getApprovedByAdmin().getUserId() : null
+                item.getApprovedBy() != null ? item.getApprovedBy().getUserId() : null
         );
     }
 }

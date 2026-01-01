@@ -1,6 +1,7 @@
 package com.spareparts.spareparts_backend.repo;
 
 import com.spareparts.spareparts_backend.entity.SpareItem;
+import com.spareparts.spareparts_backend.enums.SpareItemCategory;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -42,7 +43,7 @@ public interface SpareItemRepo extends JpaRepository<SpareItem, Integer> {
     );
 
     List<SpareItem> findByCategoryAndStatus(
-            String category,
+            SpareItemCategory category,
             SpareItemStatus status
     );
 
@@ -56,8 +57,8 @@ public interface SpareItemRepo extends JpaRepository<SpareItem, Integer> {
             SpareItemStatus status
     );
 
-    List<SpareItem> findByCategoryAndBrandAndStatus(
-            String category,
+    List<SpareItem> findByCategoryAndBrandIgnoreCaseAndStatus(
+            SpareItemCategory category,
             String brand,
             SpareItemStatus status
     );

@@ -66,9 +66,10 @@ public class SpareItem {
     @JoinColumn(name = "manager_id")
     private Manager manager;
 
+    // Who approved the item (can be ADMIN or MANAGER)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approved_by_admin_id")
-    private User approvedByAdmin;
+    @JoinColumn(name = "approved_by_id")
+    private User approvedBy;
 
 
     private LocalDateTime createdAt;

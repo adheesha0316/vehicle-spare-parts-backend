@@ -21,7 +21,7 @@ public interface SpareItemService {
     SpareItemResponseDto restoreSpareItem(Integer spareItemId);
 
     // ---------------- APPROVE ----------------
-    SpareItemResponseDto approveSpareItemUpdate(Integer spareItemId, Integer adminId);
+    SpareItemResponseDto approveSpareItemUpdate(Integer spareItemId, Integer approverId);
 
     // ---------------- GET ----------------
     SpareItemResponseDto getSpareItemById(Integer spareItemId);
