@@ -26,6 +26,7 @@ public interface SpareItemService {
     // ---------------- GET ----------------
     SpareItemResponseDto getSpareItemById(Integer spareItemId);
     List<SpareItemResponseDto> getAllApprovedSpareItems(); // For customers
+    List<SpareItemResponseDto> getApprovedByCategory(String categoryKey);
     List<SpareItemResponseDto> getAllSpareItemsForAdmin(); // For admin
     List<SpareItemResponseDto> getSpareItemsByManager(Integer managerId); // For manager
     List<CategoryResponseDto> getAllCategories();
