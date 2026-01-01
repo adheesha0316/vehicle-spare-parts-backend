@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.entity;
 
+import com.spareparts.spareparts_backend.enums.PartnerAgreementStatus;
 import com.spareparts.spareparts_backend.enums.PartnerStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -27,40 +28,46 @@ public class Partner {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    // Personal info
+    // ================= Personal Info =================
     private String fullName;
     private String phone;
     private String nicNumber;
 
-    // Shop info
+    // ================= Shop Info =================
     private String shopName;
     private String shopAddress;
     private String branchName;
 
-    // Profile images
+    // ================= Profile Images =================
     private String nicFrontImage;
     private String nicBackImage;
     private String profileImage;
 
+    // ================= Partner Status =================
     @Enumerated(EnumType.STRING)
-    private PartnerStatus status;  // PENDING, APPROVED, DELETED
+    private PartnerStatus status; // PENDING, APPROVED, DELETED
 
     // Admin who approved this Partner
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by_admin_id")
     private User approvedByAdmin;
 
-    // ================= Agreement Fields =================
-    // Tracks the latest PartnerAgreement the partner agreed to
+    // ================= Agreement Management =================
+
+    // Latest agreement that partner has agreed to
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "agreed_agreement_id")
     private PartnerAgreement agreedAgreement;
 
-    private Boolean agreementAccepted;       // true if signed/uploaded
-    private LocalDateTime agreementSignedAt; // timestamp when signed
+    @Enumerated(EnumType.STRING)
+    private PartnerAgreementStatus agreementStatus;
+    // REQUIRED, SUBMITTED, APPROVED, REJECTED, EXPIRED
+
+    private LocalDateTime agreementSignedAt;
 
     // ================= Pending Update Fields =================
-    // For profile edits that require admin approval
+    // Used when Partner updates profile → Admin approval required
+
     private String pendingFullName;
     private String pendingPhone;
     private String pendingNicNumber;
@@ -73,10 +80,10 @@ public class Partner {
     private String pendingProfileImage;
 
     // ================= Spare Items =================
-    // All SpareItems created by this Partner
     @OneToMany(mappedBy = "partner", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SpareItem> spareItems = new ArrayList<>();
 
+    // ================= Audit =================
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
