@@ -35,6 +35,7 @@ public class Partner {
     // Shop info
     private String shopName;
     private String shopAddress;
+    private String branchName;
 
     // Profile images
     private String nicFrontImage;
