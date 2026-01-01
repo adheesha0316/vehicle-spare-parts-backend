@@ -24,6 +24,7 @@ public class SpareItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer spareItemId;
 
+    // ================= BASIC INFO =================
     @Column(nullable = false)
     private String name;
 
@@ -34,7 +35,6 @@ public class SpareItem {
     @Column(nullable = false)
     private SpareItemCategory category;
 
-    // Customers care about brand
     @Column(nullable = false)
     private String brand;
 
@@ -44,7 +44,7 @@ public class SpareItem {
     @Column(nullable = false)
     private Integer quantity;
 
-    // 1–5 image file paths
+    // ================= IMAGES =================
     @ElementCollection
     @CollectionTable(
             name = "spare_item_images",
@@ -53,33 +53,48 @@ public class SpareItem {
     @Column(name = "image_path")
     private List<String> images = new ArrayList<>();
 
+    // ================= STATUS =================
     @Enumerated(EnumType.STRING)
     private SpareItemStatus status;
-    // PENDING, APPROVED, DELETED
+    // PENDING, APPROVED, REJECTED, UPDATE_PENDING, DELETED
 
     @Enumerated(EnumType.STRING)
     private StockStatus stockStatus;
     // IN_STOCK, OUT_OF_STOCK, LOW_STOCK
 
-    // Who added the item
+    // ================= OWNERSHIP =================
+
+    // Created by MANAGER (optional)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id")
     private Manager manager;
 
-    // Who approved the item (can be ADMIN or MANAGER)
+    // Created by PARTNER (optional)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approved_by_id")
+    @JoinColumn(name = "partner_id")
+    private Partner partner;
+
+    // Approved / Rejected by ADMIN or MANAGER
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by_user_id")
     private User approvedBy;
 
+    // Reason if rejected
+    @Column(length = 500)
+    private String rejectionReason;
 
+    // Approval / rejection time
+    private LocalDateTime approvedAt;
+
+    // ================= TIMESTAMPS =================
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     // ================= PENDING UPDATE FIELDS =================
-    // Used when MANAGER updates → ADMIN approval required
+    // Used when update requires approval
 
     private String pendingName;
-    private String pendingBrand; // manager updated brand waiting for admin approval
+    private String pendingBrand;
     private String pendingDescription;
     private Double pendingPrice;
     private Integer pendingQuantity;
