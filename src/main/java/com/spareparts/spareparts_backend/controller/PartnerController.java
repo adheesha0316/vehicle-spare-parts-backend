@@ -1,0 +1,282 @@
+package com.spareparts.spareparts_backend.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spareparts.spareparts_backend.dto.PartnerRequestDto;
+import com.spareparts.spareparts_backend.dto.PartnerResponseDto;
+import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
+import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
+import com.spareparts.spareparts_backend.entity.PartnerAgreement;
+import com.spareparts.spareparts_backend.service.PartnerService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/partners")
+@RequiredArgsConstructor
+@CrossOrigin
+public class PartnerController {
+
+    private final PartnerService partnerService;
+    private final ObjectMapper mapper;
+
+    // ================= PARTNER PROFILE =================
+
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('USER', 'PARTNER')")
+    public ResponseEntity<PartnerResponseDto> createPartnerProfile(
+            @RequestParam Integer userId,
+            @RequestPart("partner") String partnerJson,
+            @RequestPart MultipartFile nicFront,
+            @RequestPart MultipartFile nicBack,
+            @RequestPart(required = false) MultipartFile profileImage
+    ) throws Exception {
+
+        PartnerRequestDto dto =
+                mapper.readValue(partnerJson, PartnerRequestDto.class);
+
+        return ResponseEntity.ok(
+                partnerService.createPartnerProfile(
+                        userId, dto, nicFront, nicBack, profileImage
+                )
+        );
+    }
+
+
+    @PutMapping(value = "/{partnerId}/update",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('PARTNER')")
+    public ResponseEntity<PartnerResponseDto> requestProfileUpdate(
+            @PathVariable Integer partnerId,
+            @RequestPart("partner") String partnerJson,
+            @RequestPart(required = false) MultipartFile nicFront,
+            @RequestPart(required = false) MultipartFile nicBack,
+            @RequestPart(required = false) MultipartFile profileImage
+    ) throws Exception {
+
+        PartnerRequestDto dto =
+                mapper.readValue(partnerJson, PartnerRequestDto.class);
+
+        return ResponseEntity.ok(
+                partnerService.requestProfileUpdate(
+                        partnerId, dto, nicFront, nicBack, profileImage
+                )
+        );
+    }
+
+    @PutMapping("/request-delete/{partnerId}")
+    @PreAuthorize("hasRole('PARTNER')")
+    public ResponseEntity<PartnerResponseDto> requestProfileDelete(
+            @PathVariable Integer partnerId
+    ) {
+        return ResponseEntity.ok(
+                partnerService.requestProfileDelete(partnerId)
+        );
+    }
+
+    // ================= ADMIN ACTIONS =================
+
+    @DeleteMapping("/admin/delete/{partnerId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deletePartnerByAdmin(@PathVariable Integer partnerId) {
+        partnerService.deletePartnerByAdmin(partnerId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/admin/restore/{partnerId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> restorePartnerByAdmin(@PathVariable Integer partnerId) {
+        partnerService.restorePartnerByAdmin(partnerId);
+        return ResponseEntity.ok().build();
+    }
+
+    // ================= GET PARTNER =================
+
+    @GetMapping("/user/get/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<PartnerResponseDto> getPartnerByUserId(@PathVariable Integer userId) {
+        return ResponseEntity.ok(
+                partnerService.getPartnerByUserId(userId)
+        );
+    }
+
+    @GetMapping("/get/{partnerId}")
+    @PreAuthorize("hasAnyRole('ADMIN','PARTNER')")
+    public ResponseEntity<PartnerResponseDto> getPartnerById(@PathVariable Integer partnerId) {
+        return ResponseEntity.ok(
+                partnerService.getPartnerById(partnerId)
+        );
+    }
+
+    @GetMapping("/getAll")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<PartnerResponseDto>> getAllPartners() {
+        return ResponseEntity.ok(
+                partnerService.getAllPartners()
+        );
+    }
+
+    // ================= PARTNER AGREEMENT =================
+
+    @GetMapping("/agreement/download/{agreementId}")
+    public ResponseEntity<byte[]> downloadAgreement(@PathVariable Integer agreementId) {
+        byte[] file = partnerService.downloadAgreement(agreementId);
+
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=partner-agreement-" + agreementId + ".pdf"
+                )
+
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(file);
+    }
+
+    @PostMapping(value = "/agreement/accept/{partnerId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('PARTNER')")
+    public ResponseEntity<PartnerResponseDto> acceptAgreement(
+            @PathVariable Integer partnerId,
+            @RequestPart MultipartFile signedAgreement
+    ) {
+        return ResponseEntity.ok(
+                partnerService.acceptAgreement(partnerId, signedAgreement)
+        );
+    }
+
+    // ================= ADMIN AGREEMENT =================
+
+    @PostMapping(value = "/admin/agreement/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<PartnerAgreement> uploadAgreement(
+            @RequestPart MultipartFile agreementFile,
+            @RequestParam String version
+    ) {
+        return ResponseEntity.ok(
+                partnerService.uploadAgreement(agreementFile, version)
+        );
+    }
+
+    @DeleteMapping("/admin/agreement/{agreementId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> removeAgreement(@PathVariable Integer agreementId) {
+        partnerService.removeAgreement(agreementId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping(value = "/admin/agreement/upload-new", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<PartnerAgreement> uploadNewAgreementVersion(
+            @RequestPart MultipartFile agreementFile,
+            @RequestParam String version
+    ) {
+        return ResponseEntity.ok(
+                partnerService.uploadNewAgreementVersion(agreementFile, version)
+        );
+    }
+
+    // ================= SPARE ITEM =================
+
+    @PostMapping(value = "/{partnerId}/spare-items",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('PARTNER')")
+    public ResponseEntity<SpareItemResponseDto> createSpareItemRequest(
+            @PathVariable Integer partnerId,
+            @RequestPart("spareItem") String spareItemJson,
+            @RequestPart(required = false) List<MultipartFile> images
+    ) throws Exception {
+
+        SpareItemRequestDto dto =
+                mapper.readValue(spareItemJson, SpareItemRequestDto.class);
+
+        return ResponseEntity.ok(
+                partnerService.createSpareItemRequest(
+                        partnerId, dto, images
+                )
+        );
+    }
+
+    @PutMapping(value = "/{partnerId}/spare-items/{spareItemId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('PARTNER')")
+    public ResponseEntity<SpareItemResponseDto> RequestSpareItemUpdate(
+            @PathVariable Integer partnerId,
+            @PathVariable Integer spareItemId,
+            @RequestPart("spareItem") String spareItemJson,
+            @RequestPart(required = false) List<MultipartFile> images
+    ) throws Exception {
+
+        SpareItemRequestDto dto =
+                mapper.readValue(spareItemJson, SpareItemRequestDto.class);
+
+        return ResponseEntity.ok(
+                partnerService.requestSpareItemUpdate(
+                        partnerId, spareItemId, dto, images
+                )
+        );
+    }
+
+
+    @DeleteMapping("/{partnerId}/spare-items/{spareItemId}")
+    @PreAuthorize("hasRole('PARTNER')")
+    public ResponseEntity<SpareItemResponseDto> requestSpareItemDelete(
+            @PathVariable Integer partnerId,
+            @PathVariable Integer spareItemId
+    ) {
+        return ResponseEntity.ok(
+                partnerService.requestSpareItemDelete(partnerId, spareItemId)
+        );
+    }
+
+    // ================= APPROVAL =================
+
+    @PutMapping("/spare-items/{spareItemId}/approve-reject")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<SpareItemResponseDto> approveOrRejectSpareItem(
+            @PathVariable Integer spareItemId,
+            @RequestParam boolean approve,
+            @RequestParam(required = false) String rejectionReason,
+            @RequestParam Integer approverId
+    ) {
+        return ResponseEntity.ok(
+                partnerService.approveOrRejectSpareItem(spareItemId, approve, rejectionReason, approverId)
+        );
+    }
+
+    // ================= SPARE ITEM LISTS =================
+
+    @GetMapping("/{partnerId}/spare-items/approved")
+    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN', 'MANAGER')")
+    public ResponseEntity<List<SpareItemResponseDto>> getApprovedSpareItems(
+            @PathVariable Integer partnerId
+    ) {
+        return ResponseEntity.ok(
+                partnerService.getApprovedSpareItemsByPartner(partnerId)
+        );
+    }
+
+    @GetMapping("/{partnerId}/spare-items/rejected")
+    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN', 'MANAGER')")
+    public ResponseEntity<List<SpareItemResponseDto>> getRejectedSpareItems(
+            @PathVariable Integer partnerId
+    ) {
+        return ResponseEntity.ok(
+                partnerService.getRejectedSpareItemsByPartner(partnerId)
+        );
+    }
+
+    @GetMapping("/{partnerId}/spare-items/pending")
+    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN', 'MANAGER')")
+    public ResponseEntity<List<SpareItemResponseDto>> getPendingSpareItems(
+            @PathVariable Integer partnerId
+    ) {
+        return ResponseEntity.ok(
+                partnerService.getPendingSpareItemsByPartner(partnerId)
+        );
+    }
+}
