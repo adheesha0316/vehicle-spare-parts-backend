@@ -36,4 +36,6 @@ public interface PartnerRepo extends JpaRepository<Partner, Integer> {
     // Admin cleanup / auditing
     boolean existsByUser_UserId(Integer userId);
 
+    // NEW: Check if a partner already exists with the given email
+    boolean existsByUser_Email(String email);
 }

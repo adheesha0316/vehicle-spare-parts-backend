@@ -9,6 +9,7 @@ import com.spareparts.spareparts_backend.entity.PartnerAgreement;
 import com.spareparts.spareparts_backend.entity.SpareItem;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.PartnerStatus;
+import com.spareparts.spareparts_backend.enums.Role;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
 import com.spareparts.spareparts_backend.repo.PartnerAgreementRepo;
@@ -61,6 +62,16 @@ public class PartnerServiceImpl implements PartnerService {
     public PartnerResponseDto createPartnerProfile(Integer userId, PartnerRequestDto requestDto, MultipartFile nicFront, MultipartFile nicBack, MultipartFile profileImage) {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Manager check
+        if(user.getRole().equals(Role.MANAGER)) {
+            throw new RuntimeException("Manager cannot register as Partner");
+        }
+
+        // Check if email already registered as Partner
+        if(partnerRepo.existsByUser_Email(user.getEmail())) {
+            throw new RuntimeException("This email is already registered as a Partner");
+        }
 
         if (partnerRepo.existsByUser_UserId(userId)) {
             throw new RuntimeException("Partner profile already exists");
