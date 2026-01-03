@@ -12,6 +12,7 @@ import com.spareparts.spareparts_backend.enums.PartnerStatus;
 import com.spareparts.spareparts_backend.enums.Role;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
+import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.repo.PartnerAgreementRepo;
 import com.spareparts.spareparts_backend.repo.PartnerRepo;
 import com.spareparts.spareparts_backend.repo.SpareItemRepo;
@@ -159,7 +160,12 @@ public class PartnerServiceImpl implements PartnerService {
     @Override
     public PartnerResponseDto getPartnerById(Integer partnerId) {
         Partner partner = partnerRepo.findById(partnerId)
-                .orElseThrow(() -> new RuntimeException("Partner not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Partner not found with id " + partnerId
+                        )
+                );
+
         return mapToDto(partner);
     }
 
