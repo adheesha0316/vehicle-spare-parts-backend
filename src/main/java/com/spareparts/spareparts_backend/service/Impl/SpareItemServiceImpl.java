@@ -9,6 +9,7 @@ import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.SpareItemCategory;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
+import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.repo.ManagerRepo;
 import com.spareparts.spareparts_backend.repo.SpareItemRepo;
 import com.spareparts.spareparts_backend.repo.UserRepo;
@@ -148,7 +149,16 @@ public class SpareItemServiceImpl implements SpareItemService {
 
     @Override
     public SpareItemResponseDto getSpareItemById(Integer spareItemId) {
-        return mapToResponseDto(getActiveSpareItem(spareItemId));
+        SpareItem spareItem = spareItemRepo
+                .findById(spareItemId)
+                .filter(item -> item.getStatus() != SpareItemStatus.DELETED)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Spare item not found with id " + spareItemId
+                        )
+                );
+
+        return mapToResponseDto(spareItem);
     }
 
     @Override
