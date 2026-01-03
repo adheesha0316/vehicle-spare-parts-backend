@@ -65,6 +65,9 @@ public class Partner {
 
     private LocalDateTime agreementSignedAt;
 
+    private String signedAgreementPath; // Path to the signed PDF
+    private Boolean agreementAccepted;  // true if partner accepted the agreement
+
     // ================= Pending Update Fields =================
     // Used when Partner updates profile → Admin approval required
 

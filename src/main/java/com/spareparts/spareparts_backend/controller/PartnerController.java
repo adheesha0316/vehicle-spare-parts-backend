@@ -6,6 +6,7 @@ import com.spareparts.spareparts_backend.dto.PartnerResponseDto;
 import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
 import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
 import com.spareparts.spareparts_backend.entity.PartnerAgreement;
+import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.service.PartnerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -16,9 +17,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/partners")
+@RequestMapping("/api/v1/partners")
 @RequiredArgsConstructor
 @CrossOrigin
 public class PartnerController {
@@ -150,6 +152,51 @@ public class PartnerController {
     }
 
     // ================= ADMIN AGREEMENT =================
+
+    // Generate a new agreement PDF
+    @PostMapping("/agreement/generate")
+    public ResponseEntity<?> generateAgreement(
+            @RequestParam String partnerName,
+            @RequestParam String companyName,
+            @RequestParam String conditions,
+            @RequestParam String version
+    ) {
+        try {
+            PartnerAgreement agreement = partnerService.generateAgreementPdf(
+                    partnerName, companyName, conditions, version
+            );
+            return ResponseEntity.ok(agreement);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of(
+                            "message", "Failed to generate agreement",
+                            "error", e.getMessage()
+                    ));
+        }
+    }
+
+    // Get the current agreement's conditions
+    @GetMapping("/agreement/current/conditions")
+    public ResponseEntity<?> getCurrentConditions() {
+        try {
+            String conditions = partnerService.getCurrentAgreementConditions();
+            return ResponseEntity.ok(Map.of(
+                    "conditions", conditions
+            ));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404)
+                    .body(Map.of(
+                            "message", e.getMessage()
+                    ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of(
+                            "message", "Failed to read agreement PDF",
+                            "error", e.getMessage()
+                    ));
+        }
+    }
+
 
     @PostMapping(value = "/admin/agreement/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")

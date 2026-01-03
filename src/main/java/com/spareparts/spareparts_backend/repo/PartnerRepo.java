@@ -19,23 +19,25 @@ public interface PartnerRepo extends JpaRepository<Partner, Integer> {
     // Approved partners
     List<Partner> findAllByStatus(PartnerStatus status);
 
-    // Pending approval
+    // Pending approval (sorted by creation date)
     List<Partner> findAllByStatusOrderByCreatedAtDesc(PartnerStatus status);
 
     // Find by shop name (optional search)
     List<Partner> findByShopNameContainingIgnoreCase(String shopName);
 
-    // Find by branch
+    // Find by branch name (optional search)
     List<Partner> findByBranchNameContainingIgnoreCase(String branchName);
 
     // Agreement validation helpers
-    List<Partner> findAllByAgreementAcceptedFalse();
+    // Get all partners who have not yet accepted an agreement
+    List<Partner> findAllByAgreedAgreementIsNull();
 
+    // Get all partners for a specific agreement ID
     List<Partner> findAllByAgreedAgreement_AgreementId(Integer agreementId);
 
     // Admin cleanup / auditing
     boolean existsByUser_UserId(Integer userId);
 
-    // NEW: Check if a partner already exists with the given email
+    // Check if a partner already exists with the given email
     boolean existsByUser_Email(String email);
 }

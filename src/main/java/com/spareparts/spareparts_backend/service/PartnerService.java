@@ -78,6 +78,12 @@ public interface PartnerService {
 
     List<SpareItemResponseDto> getPendingSpareItemsByPartner(Integer partnerId);
 
+
+    // ================= Agreement =================
+    PartnerAgreement generateAgreementPdf(String partnerName, String companyName, String conditions, String version);
+
+    String getCurrentAgreementConditions();
+
     // ================= IMPORTANT UTILS =================
 
     void validateAgreementAccepted(Integer partnerId);
