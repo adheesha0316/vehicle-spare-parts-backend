@@ -6,6 +6,7 @@ import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.ManagerStatus;
 import com.spareparts.spareparts_backend.enums.Role;
 import com.spareparts.spareparts_backend.enums.UserStatus;
+import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.repo.ManagerRepo;
 import com.spareparts.spareparts_backend.repo.UserRepo;
 import com.spareparts.spareparts_backend.service.ManagerService;
@@ -122,8 +123,14 @@ public class ManagerServiceImpl implements ManagerService {
 
     @Override
     public ManagerDto getManagerById(Integer managerId) {
-        Manager manager = managerRepo.findByManagerIdAndStatusNot(managerId, ManagerStatus.DELETED)
-                .orElseThrow(() -> new RuntimeException("Manager not found"));
+        Manager manager = managerRepo
+                .findByManagerIdAndStatusNot(managerId, ManagerStatus.DELETED)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Manager not found with id " + managerId
+                        )
+                );
+
         return modelMapper.map(manager, ManagerDto.class);
     }
 
