@@ -127,6 +127,7 @@ public class PartnerController {
     // ================= PARTNER AGREEMENT =================
 
     @GetMapping("/agreement/download/{agreementId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER')")
     public ResponseEntity<byte[]> downloadAgreement(@PathVariable Integer agreementId) {
         byte[] file = partnerService.downloadAgreement(agreementId);
 
@@ -177,6 +178,7 @@ public class PartnerController {
 
     // Get the current agreement's conditions
     @GetMapping("/agreement/current/conditions")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER')")
     public ResponseEntity<?> getCurrentConditions() {
         try {
             String conditions = partnerService.getCurrentAgreementConditions();
