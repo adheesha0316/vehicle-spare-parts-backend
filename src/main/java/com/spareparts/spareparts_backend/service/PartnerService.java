@@ -42,7 +42,7 @@ public interface PartnerService {
 
     // ================= PARTNER AGREEMENT =================
 
-    byte[] downloadAgreement(Integer agreementId);
+    byte[] downloadAgreement(Integer partnerId);
 
     PartnerResponseDto acceptAgreement(Integer partnerId, MultipartFile signedAgreement);
 
@@ -80,9 +80,11 @@ public interface PartnerService {
 
 
     // ================= Agreement =================
-    PartnerAgreement generateAgreementPdf(String conditions, String version);
+    PartnerAgreement generateAgreementPdf(String partnerName, String companyName,String conditions, String version);
 
     String getCurrentAgreementConditions();
+
+    void removeAllOldAgreements();
 
     // ================= IMPORTANT UTILS =================
 

@@ -204,27 +204,46 @@ public class PartnerServiceImpl implements PartnerService {
     // ================= AGREEMENTS =================
 
     @Override
-    public byte[] downloadAgreement(Integer agreementId) {
-        // Fetch the agreement or throw if not found
-        PartnerAgreement agreement = agreementRepo.findById(agreementId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Agreement not found with id " + agreementId));
-
-        // ===== Check if this is the latest agreement =====
-        if (!agreement.getIsLatest()) {
-            throw new ResourceNotFoundException("This agreement version is no longer active");
-        }
-
-        // Read the file from the stored path
-        Path filePath = Paths.get(agreement.getFilePath());
-        if (!Files.exists(filePath)) {
-            throw new RuntimeException("Agreement file does not exist at path: " + agreement.getFilePath());
-        }
-
+    public byte[] downloadAgreement(Integer partnerId) {
         try {
-            return Files.readAllBytes(filePath);
+            // ================= Fetch Partner =================
+            Partner partner = partnerRepo.findById(partnerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Partner not found with id " + partnerId));
+
+            // ================= Get latest active agreement =================
+            PartnerAgreement latestAgreement = agreementRepo
+                    .findByIsLatestTrueAndStatus(PartnerAgreementStatus.REQUIRED)
+                    .orElseThrow(() -> new ResourceNotFoundException("No active agreement found"));
+
+            // ================= Check agreement file exists =================
+            Path filePath = Paths.get(latestAgreement.getFilePath());
+            if (!Files.exists(filePath)) {
+                throw new RuntimeException("Agreement file does not exist at path: " + latestAgreement.getFilePath());
+            }
+
+            // ================= Dynamically generate PDF =================
+            // Using your existing generateAgreementPdf method, passing partner details
+            PartnerAgreement generatedAgreement = generateAgreementPdf(
+                    partner.getFullName(),         // Partner full name
+                    partner.getShopName(),         // Shop name (company name equivalent)
+                    latestAgreement.getConditions(), // Agreement conditions
+                    latestAgreement.getVersion()     // Version
+            );
+
+            // ================= Return PDF bytes =================
+            Path generatedFilePath = Paths.get(generatedAgreement.getFilePath());
+            if (!Files.exists(generatedFilePath)) {
+                throw new RuntimeException("Generated PDF file does not exist at path: " + generatedAgreement.getFilePath());
+            }
+
+            return Files.readAllBytes(generatedFilePath);
+
+        } catch (ResourceNotFoundException e) {
+            throw e; // propagate not found exceptions
         } catch (IOException e) {
-            throw new RuntimeException("Error reading agreement file at path: " + agreement.getFilePath(), e);
+            throw new RuntimeException("Error reading agreement PDF file", e);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to download agreement", e);
         }
     }
 
@@ -460,7 +479,7 @@ public class PartnerServiceImpl implements PartnerService {
     }
 
     @Override
-    public PartnerAgreement generateAgreementPdf(String conditions, String version) {
+    public PartnerAgreement generateAgreementPdf(String partnerName, String companyName,String conditions, String version) {
         try {
             // ================= Version duplicate check =================
             if (agreementRepo.existsByVersion(version)) {
@@ -531,6 +550,14 @@ public class PartnerServiceImpl implements PartnerService {
 
             infoTable.addCell(new Cell().add(new Paragraph("Agreement Type").setBold()));
             infoTable.addCell(new Cell().add(new Paragraph("Common Partner Agreement")));
+
+            // Partner Name - Variable
+            infoTable.addCell(new Cell().add(new Paragraph("Partner Name").setBold()));
+            infoTable.addCell(new Cell().add(new Paragraph("                        ")));
+
+            // Company Name / Shop Name
+            infoTable.addCell(new Cell().add(new Paragraph("Company / Shop Name").setBold()));
+            infoTable.addCell(new Cell().add(new Paragraph("                       ")));
 
             infoTable.addCell(new Cell().add(new Paragraph("Version").setBold()));
             infoTable.addCell(new Cell().add(new Paragraph(version)));
@@ -660,6 +687,7 @@ public class PartnerServiceImpl implements PartnerService {
             PartnerAgreement agreement = PartnerAgreement.builder()
                     .filePath(filePath.toString())
                     .version(version)
+                    .conditions(conditions)
                     .createdAt(LocalDateTime.now())
                     .status(PartnerAgreementStatus.REQUIRED)
                     .isLatest(true)
@@ -715,6 +743,11 @@ public class PartnerServiceImpl implements PartnerService {
         } catch (IOException e) {
             throw new RuntimeException("Failed to read PDF file: " + e.getMessage(), e);
         }
+    }
+
+    @Override
+    public void removeAllOldAgreements() {
+        agreementRepo.deleteAllOldAgreements();
     }
 
     @Override

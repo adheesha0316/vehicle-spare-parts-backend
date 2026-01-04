@@ -174,7 +174,12 @@ public class PartnerController {
     ) {
         try {
             PartnerAgreement agreement =
-                    partnerService.generateAgreementPdf(conditions, version);
+                    partnerService.generateAgreementPdf(
+                            "Common Partner",   // placeholder partner name
+                            "Company Name",     // placeholder company name
+                            conditions,
+                            version
+                    );
 
             return ResponseEntity.ok(agreement);
 
@@ -366,6 +371,16 @@ public class PartnerController {
     ) {
         return ResponseEntity.ok(
                 partnerService.getPendingSpareItemsByPartner(partnerId)
+        );
+    }
+
+    // ================= DELETE OLD AGREEMENTS =================
+    @DeleteMapping("/agreement/cleanup")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> cleanupOldAgreements() {
+        partnerService.removeAllOldAgreements();
+        return ResponseEntity.ok(
+                Map.of("message", "Old agreement versions removed successfully")
         );
     }
 

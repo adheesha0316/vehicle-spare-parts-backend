@@ -31,11 +31,15 @@ public class PartnerAgreement {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(columnDefinition = "TEXT")
     private String description;   // Optional notes about this version
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String conditions;    // Agreement conditions text
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PartnerAgreementStatus status; // ACTIVE, REMOVED
+    private PartnerAgreementStatus status; // REQUIRED, SUBMITTED, APPROVED, etc.
 
     @Column(nullable = false)
     private Boolean isLatest;     // true if this is the latest version

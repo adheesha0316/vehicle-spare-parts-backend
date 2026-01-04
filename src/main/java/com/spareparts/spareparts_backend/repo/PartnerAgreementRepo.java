@@ -28,10 +28,23 @@ public interface PartnerAgreementRepo extends JpaRepository<PartnerAgreement, In
     // Check existence
     boolean existsByVersion(String version);
 
+    List<PartnerAgreement> findByIsLatestFalse();
+
     // 🔥 Custom method: mark all agreements as not latest
     @Modifying
     @Transactional
     @Query("UPDATE PartnerAgreement pa SET pa.isLatest = false WHERE pa.isLatest = true")
     void updateLatestFalse();
+
+    // ================= DELETE =================
+
+    // 🔥 REMOVE all old agreements (not latest)
+    @Modifying
+    @Transactional
+    @Query("""
+        DELETE FROM PartnerAgreement pa
+        WHERE pa.isLatest = false
+    """)
+    void deleteAllOldAgreements();
 
 }
