@@ -10,6 +10,7 @@ import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.service.PartnerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -125,21 +126,32 @@ public class PartnerController {
     }
 
     // ================= PARTNER AGREEMENT =================
-
     @GetMapping("/agreement/download/{agreementId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER')")
-    public ResponseEntity<byte[]> downloadAgreement(@PathVariable Integer agreementId) {
-        byte[] file = partnerService.downloadAgreement(agreementId);
+    public ResponseEntity<?> downloadAgreement(@PathVariable Integer agreementId) {
+        try {
+            byte[] file = partnerService.downloadAgreement(agreementId);
 
-        return ResponseEntity.ok()
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=partner-agreement-" + agreementId + ".pdf"
-                )
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=partner-agreement-" + agreementId + ".pdf")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(file);
 
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(file);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404)
+                    .body(Map.of(
+                            "message", e.getMessage()
+                    ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of(
+                            "message", "Failed to download agreement",
+                            "error", e.getMessage()
+                    ));
+        }
     }
+
 
     @PostMapping(value = "/agreement/accept/{partnerId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('PARTNER')")
@@ -154,27 +166,37 @@ public class PartnerController {
 
     // ================= ADMIN AGREEMENT =================
 
-    // Generate a new agreement PDF
     @PostMapping("/agreement/generate")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> generateAgreement(
-            @RequestParam String partnerName,
-            @RequestParam String companyName,
             @RequestParam String conditions,
             @RequestParam String version
     ) {
         try {
-            PartnerAgreement agreement = partnerService.generateAgreementPdf(
-                    partnerName, companyName, conditions, version
-            );
+            PartnerAgreement agreement =
+                    partnerService.generateAgreementPdf(conditions, version);
+
             return ResponseEntity.ok(agreement);
+
         } catch (RuntimeException e) {
-            return ResponseEntity.status(500)
+
+            // Version duplicate case
+            if (e.getMessage().contains("version")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of(
+                                "message", e.getMessage()
+                        ));
+            }
+
+            // Other errors
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of(
                             "message", "Failed to generate agreement",
                             "error", e.getMessage()
                     ));
         }
     }
+
 
     // Get the current agreement's conditions
     @GetMapping("/agreement/current/conditions")
@@ -228,6 +250,24 @@ public class PartnerController {
                 partnerService.uploadNewAgreementVersion(agreementFile, version)
         );
     }
+
+    // ================= ADMIN / PARTNER AGREEMENT =================
+
+    @GetMapping("/agreement/latest")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER')")
+    public ResponseEntity<PartnerAgreement> getLatestAgreement() {
+        try {
+            PartnerAgreement latestAgreement = partnerService.getLatestAgreement();
+            return ResponseEntity.ok(latestAgreement);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404)
+                    .body(null);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(500)
+                    .body(null);
+        }
+    }
+
 
     // ================= SPARE ITEM =================
 
@@ -328,4 +368,6 @@ public class PartnerController {
                 partnerService.getPendingSpareItemsByPartner(partnerId)
         );
     }
+
+
 }

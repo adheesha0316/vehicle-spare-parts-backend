@@ -2,11 +2,23 @@ package com.spareparts.spareparts_backend.service.Impl;
 
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.events.Event;
+import com.itextpdf.kernel.events.IEventHandler;
+import com.itextpdf.kernel.events.PdfDocumentEvent;
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.kernel.geom.Rectangle;
 import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfPage;
 import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.canvas.PdfCanvas;
+import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
+import com.itextpdf.layout.Canvas;
 import com.itextpdf.layout.Document;
-import com.itextpdf.layout.element.Image;
-import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.element.*;
+import com.itextpdf.layout.properties.HorizontalAlignment;
+import com.itextpdf.layout.properties.TextAlignment;
+import com.itextpdf.layout.properties.UnitValue;
 import com.spareparts.spareparts_backend.dto.PartnerRequestDto;
 import com.spareparts.spareparts_backend.dto.PartnerResponseDto;
 import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
@@ -40,6 +52,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+
 import java.util.stream.Collectors;
 
 @Service
@@ -192,10 +205,15 @@ public class PartnerServiceImpl implements PartnerService {
 
     @Override
     public byte[] downloadAgreement(Integer agreementId) {
-        // Fetch the agreement or throw a ResourceNotFoundException if not found
+        // Fetch the agreement or throw if not found
         PartnerAgreement agreement = agreementRepo.findById(agreementId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Agreement not found with id " + agreementId));
+
+        // ===== Check if this is the latest agreement =====
+        if (!agreement.getIsLatest()) {
+            throw new ResourceNotFoundException("This agreement version is no longer active");
+        }
 
         // Read the file from the stored path
         Path filePath = Paths.get(agreement.getFilePath());
@@ -442,51 +460,203 @@ public class PartnerServiceImpl implements PartnerService {
     }
 
     @Override
-    public PartnerAgreement generateAgreementPdf(String partnerName, String companyName, String conditions, String version) {
+    public PartnerAgreement generateAgreementPdf(String conditions, String version) {
         try {
-            // Prepare file path
+            // ================= Version duplicate check =================
+            if (agreementRepo.existsByVersion(version)) {
+                throw new RuntimeException(
+                        "Agreement version already exists"
+                );
+            }
+
+            // ================= Prepare file path =================
             Path agreementsDir = Paths.get("uploads/agreements");
             if (!Files.exists(agreementsDir)) Files.createDirectories(agreementsDir);
 
             String fileName = "partner-agreement-v" + version + ".pdf";
             Path filePath = agreementsDir.resolve(fileName);
 
-            // Create PDF
+            // ================= Create PDF =================
             PdfWriter writer = new PdfWriter(filePath.toString());
             PdfDocument pdf = new PdfDocument(writer);
             Document document = new Document(pdf);
 
-            // Add title and content
+            // ================= Add page event for numbering =================
+            pdf.addEventHandler(PdfDocumentEvent.END_PAGE, new IEventHandler() {
+                @Override
+                public void handleEvent(Event event) {
+                    PdfDocumentEvent docEvent = (PdfDocumentEvent) event;
+                    PdfPage page = docEvent.getPage();
+                    PdfCanvas pdfCanvas = new PdfCanvas(page);
+                    Rectangle pageSize = page.getPageSize();
+                    int pageNumber = docEvent.getDocument().getPageNumber(page);
+                    int totalPages = docEvent.getDocument().getNumberOfPages();
+
+                    Canvas canvas = new Canvas(pdfCanvas, pageSize);
+                    canvas.showTextAligned(
+                            new Paragraph(String.format("Page %d of %d", pageNumber, totalPages))
+                                    .setFontSize(9),
+                            pageSize.getWidth() / 2,
+                            20, // 20 units from bottom
+                            TextAlignment.CENTER
+                    );
+                    canvas.close();
+                }
+            });
+
+            // ================= Add company logo =================
+            InputStream logoStream = getClass().getClassLoader().getResourceAsStream("logo.png");
+            if (logoStream != null) {
+                ImageData logoData = ImageDataFactory.create(logoStream.readAllBytes());
+                document.add(new Image(logoData)
+                        .setWidth(120)
+                        .setHeight(60)
+                        .setMarginBottom(20)
+                );
+            } else {
+                System.out.println("Logo not found in resources/logo.png");
+            }
+
+            // ================= Add title =================
             document.add(new Paragraph("PARTNER AGREEMENT")
                     .setBold()
                     .setFontSize(18)
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setMarginBottom(20)
             );
-            document.add(new Paragraph("\nPartner Name: " + partnerName));
-            document.add(new Paragraph("Company Name: " + companyName));
-            document.add(new Paragraph("\nVersion: " + version));
-            document.add(new Paragraph("\nConditions:\n" + conditions));
 
-            // Add admin signature
-            InputStream signatureStream = getClass()
-                    .getClassLoader()
-                    .getResourceAsStream("signatures/admin-1.png");
+            // ================= Agreement info table (COMMON) =================
+            float[] columnWidths = {150F, 350F};
+            Table infoTable = new Table(columnWidths).setMarginBottom(20);
 
-            if (signatureStream == null) {
-                throw new RuntimeException("Admin signature not found in resources/signatures/admin-1.png");
+            infoTable.addCell(new Cell().add(new Paragraph("Agreement Type").setBold()));
+            infoTable.addCell(new Cell().add(new Paragraph("Common Partner Agreement")));
+
+            infoTable.addCell(new Cell().add(new Paragraph("Version").setBold()));
+            infoTable.addCell(new Cell().add(new Paragraph(version)));
+
+            infoTable.addCell(new Cell().add(new Paragraph("Date").setBold()));
+            infoTable.addCell(new Cell().add(new Paragraph(LocalDate.now().toString())));
+
+            document.add(infoTable);
+
+            // ================= Conditions title =================
+            document.add(new Paragraph("Conditions")
+                    .setBold()
+                    .setUnderline()
+                    .setFontSize(14)
+                    .setMarginBottom(2) // Reduced to stay close to the line
+            );
+
+            // Add a horizontal line (Separator)
+            document.add(new LineSeparator(new SolidLine(1f))
+                    .setMarginBottom(12)
+            );
+
+            // ================= Normalize messy input =================
+            String normalized = conditions
+                    .replace("\\n", " ")
+                    .replace("\n", " ")
+                    .replace("\r", " ")
+                    .replaceAll("\\s+", " ")
+                    .trim();
+
+            // ================= Split by numbering =================
+            // Using a lookahead to split before digit + dot
+            String[] blocks = normalized.split("(?=\\d+\\.)");
+
+            int count = 1;
+
+            for (String block : blocks) {
+                // Clean up the block: remove leading "1. " if it exists
+                block = block.replaceFirst("^\\d+\\.\\s*", "").trim();
+                if (block.isEmpty()) continue;
+
+                String headingText;
+                String descriptionText;
+
+                // Split into Heading and Description based on colon
+                if (block.contains(":")) {
+                    String[] parts = block.split(":", 2);
+                    headingText = parts[0].trim();
+                    descriptionText = parts[1].trim();
+                } else {
+                    headingText = "Condition " + count;
+                    descriptionText = block;
+                }
+
+                // ---- Heading (Numbered) ----
+                document.add(new Paragraph(count + ". " + headingText)
+                        .setBold()
+                        .setFontSize(12)
+                        .setFixedLeading(14f) // Controls line spacing
+                        .setMarginTop(8)
+                        .setMarginBottom(0)   // Keep description close to heading
+                );
+
+                // ---- Description (Indented) ----
+                document.add(new Paragraph(descriptionText)
+                        .setFontSize(11)
+                        .setMarginLeft(20)    // Creates the "hanging" look
+                        .setMarginBottom(8)
+                        .setFixedLeading(13f)
+                        .setItalic()          // Optional: slight styling difference
+                );
+
+                count++;
             }
 
-            ImageData imageData = ImageDataFactory.create(signatureStream.readAllBytes());
-            document.add(new Image(imageData).setWidth(120).setHeight(50));
-            document.add(new Paragraph("System Owner / Director"));
-            document.add(new Paragraph("Date: " + LocalDate.now()));
 
-            // Close document
+
+            // ================= Signatures =================
+            Path signaturePath =
+                    Paths.get("uploads/admin/signatures/admin-1.png");
+
+            if (!Files.exists(signaturePath)) {
+                throw new RuntimeException(
+                        "Admin signature not found at " + signaturePath
+                );
+            }
+
+            ImageData signatureData =
+                    ImageDataFactory.create(Files.readAllBytes(signaturePath));
+
+            Table signTable = new Table(new float[]{1, 1});
+            signTable.setWidth(UnitValue.createPercentValue(100));
+            signTable.setMarginTop(45);
+
+            // ---- Admin ----
+            Cell adminCell = new Cell().setBorder(Border.NO_BORDER);
+            adminCell.add(new Image(signatureData)
+                    .setWidth(120)
+                    .setHeight(50)
+            );
+            adminCell.add(new Paragraph("System Owner / Director")
+                    .setBold()
+                    .setFontSize(12)
+            );
+            signTable.addCell(adminCell);
+
+            // ---- Partner ----
+            Cell partnerCell = new Cell()
+                    .setBorder(Border.NO_BORDER)
+                    .setTextAlignment(TextAlignment.CENTER);
+
+            partnerCell.add(new Paragraph("\n\n--------------------------"));
+            partnerCell.add(new Paragraph("Partner")
+                    .setBold()
+                    .setFontSize(12)
+            );
+            signTable.addCell(partnerCell);
+
+            document.add(signTable);
+
+            // ================= Close =================
             document.close();
 
-            // Mark previous agreements as NOT latest
+            // ================= DB update =================
             agreementRepo.updateLatestFalse();
 
-            // Save new agreement in DB
             PartnerAgreement agreement = PartnerAgreement.builder()
                     .filePath(filePath.toString())
                     .version(version)
@@ -498,8 +668,24 @@ public class PartnerServiceImpl implements PartnerService {
             return agreementRepo.save(agreement);
 
         } catch (IOException e) {
-            throw new RuntimeException("Failed to generate partner agreement PDF", e);
+            throw new RuntimeException(
+                    "Failed to generate partner agreement PDF", e
+            );
         }
+    }
+
+    /* ================= Helper cells ================= */
+
+    private Cell cellBold(String text) {
+        return new Cell()
+                .add(new Paragraph(text).setBold())
+                .setPadding(5);
+    }
+
+    private Cell cellNormal(String text) {
+        return new Cell()
+                .add(new Paragraph(text))
+                .setPadding(5);
     }
 
     @Override
@@ -545,7 +731,9 @@ public class PartnerServiceImpl implements PartnerService {
 
     @Override
     public PartnerAgreement getLatestAgreement() {
-        return agreementRepo.findTopByOrderByCreatedAtDesc().orElse(null);
+        return agreementRepo
+                .findByIsLatestTrueAndStatus(PartnerAgreementStatus.REQUIRED)
+                .orElseThrow(() -> new ResourceNotFoundException("No active agreement found"));
 
     }
 
