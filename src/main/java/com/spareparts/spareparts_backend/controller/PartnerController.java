@@ -83,8 +83,28 @@ public class PartnerController {
         );
     }
 
-    // ================= ADMIN ACTIONS =================
 
+    // ================= APPROVE PARTNER =================
+    @PutMapping("/{partnerId}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<PartnerResponseDto> approvePartner(
+            @PathVariable Integer partnerId) {
+        PartnerResponseDto response = partnerService.approvePartnerProfile(partnerId);
+        return ResponseEntity.ok(response);
+    }
+
+    // ================= REJECT PARTNER =================
+    @PutMapping("/{partnerId}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<PartnerResponseDto> rejectPartner(
+            @PathVariable Integer partnerId,
+            @RequestParam String reason) {
+        PartnerResponseDto response = partnerService.rejectPartnerProfile(partnerId, reason);
+        return ResponseEntity.ok(response);
+    }
+
+
+    // ================= ADMIN ACTIONS =================
     @DeleteMapping("/admin/delete/{partnerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deletePartnerByAdmin(@PathVariable Integer partnerId) {

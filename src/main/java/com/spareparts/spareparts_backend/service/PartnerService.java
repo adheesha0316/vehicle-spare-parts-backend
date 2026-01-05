@@ -25,6 +25,19 @@ public interface PartnerService {
     PartnerResponseDto requestProfileDelete(Integer partnerId);
 
     /**
+     * ADMIN approves partner profile
+     * Admin ID is obtained from the logged-in user context
+     */
+    PartnerResponseDto approvePartnerProfile(Integer partnerId);
+
+    /**
+     * ADMIN rejects partner profile
+     * Admin ID is obtained from the logged-in user context
+     */
+    PartnerResponseDto rejectPartnerProfile(Integer partnerId, String rejectionReason);
+
+
+    /**
      * Admin deletes partner profile permanently
      */
     void deletePartnerByAdmin(Integer partnerId);

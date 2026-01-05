@@ -47,10 +47,13 @@ public class Partner {
     @Enumerated(EnumType.STRING)
     private PartnerStatus status; // PENDING, APPROVED, DELETED
 
-    // Admin who approved this Partner
+    // Admin who approved or rejected this Partner
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by_admin_id")
     private User approvedByAdmin;
+
+    // Rejection reason if partner was rejected
+    private String rejectionReason;
 
     // ================= Agreement Management =================
 

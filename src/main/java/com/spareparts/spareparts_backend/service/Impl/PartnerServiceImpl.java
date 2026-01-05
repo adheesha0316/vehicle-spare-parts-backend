@@ -38,6 +38,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -131,18 +133,35 @@ public class PartnerServiceImpl implements PartnerService {
         Partner partner = partnerRepo.findById(partnerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Partner not found with id " + partnerId));
 
+        // ===== Only allow approved partners to request updates =====
+        if (partner.getStatus() != PartnerStatus.APPROVED) {
+            throw new RuntimeException("Partner profile is not approved. Cannot request updates.");
+        }
+        if (partner.getAgreedAgreement() == null) {
+            throw new RuntimeException("You must accept the latest agreement before updating your profile.");
+        }
 
+        // ===== Set pending fields =====
         partner.setPendingFullName(requestDto.getFullName());
         partner.setPendingPhone(requestDto.getPhone());
         partner.setPendingNicNumber(requestDto.getNicNumber());
         partner.setPendingShopName(requestDto.getShopName());
         partner.setPendingShopAddress(requestDto.getShopAddress());
-        partner.setPendingNicFrontImage(saveFile(partnerId, nicFront, "pending_nicFront"));
-        partner.setPendingNicBackImage(saveFile(partnerId, nicBack, "pending_nicBack"));
-        partner.setPendingProfileImage(saveFile(partnerId, profileImage, "pending_profile"));
-        partner.setUpdatedAt(LocalDateTime.now());
 
+        // ===== Handle pending files =====
+        if (nicFront != null && !nicFront.isEmpty()) {
+            partner.setPendingNicFrontImage(saveFile(partnerId, nicFront, "pending_nicFront"));
+        }
+        if (nicBack != null && !nicBack.isEmpty()) {
+            partner.setPendingNicBackImage(saveFile(partnerId, nicBack, "pending_nicBack"));
+        }
+        if (profileImage != null && !profileImage.isEmpty()) {
+            partner.setPendingProfileImage(saveFile(partnerId, profileImage, "pending_profile"));
+        }
+
+        partner.setUpdatedAt(LocalDateTime.now());
         partnerRepo.save(partner);
+
         return mapToDto(partner);
     }
 
@@ -153,12 +172,55 @@ public class PartnerServiceImpl implements PartnerService {
                 .orElseThrow(() -> new ResourceNotFoundException("Partner not found with id " + partnerId));
 
 
+        // ===== Only allow approved partners to request deletion =====
+        if (partner.getStatus() != PartnerStatus.APPROVED) {
+            throw new RuntimeException("Partner profile is not approved. Cannot request deletion.");
+        }
+        if (partner.getAgreedAgreement() == null) {
+            throw new RuntimeException("You must accept the latest agreement before requesting profile deletion.");
+        }
+
+        // ===== Mark for pending deletion =====
         partner.setStatus(PartnerStatus.PENDING); // pending deletion for admin approval
         partner.setUpdatedAt(LocalDateTime.now());
         partnerRepo.save(partner);
 
         return mapToDto(partner);
     }
+
+    @Override
+    public PartnerResponseDto approvePartnerProfile(Integer partnerId) {
+        // Fetch partner or throw exception
+        Partner partner = partnerRepo.findById(partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Partner not found with id " + partnerId
+                ));
+
+        // Approve partner
+        partner.setStatus(PartnerStatus.APPROVED);
+        partner.setUpdatedAt(LocalDateTime.now());
+
+        // Save and return DTO
+        return modelMapper.map(partnerRepo.save(partner), PartnerResponseDto.class);
+    }
+
+    @Override
+    public PartnerResponseDto rejectPartnerProfile(Integer partnerId, String rejectionReason) {
+        // Fetch partner or throw exception
+        Partner partner = partnerRepo.findById(partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Partner not found with id " + partnerId
+                ));
+
+        // Reject partner
+        partner.setStatus(PartnerStatus.REJECTED);
+        partner.setUpdatedAt(LocalDateTime.now());
+        partner.setRejectionReason(rejectionReason); // optional: store reason
+
+        // Save and return DTO
+        return modelMapper.map(partnerRepo.save(partner), PartnerResponseDto.class);
+    }
+
 
     @Override
     public void deletePartnerByAdmin(Integer partnerId) {
@@ -335,11 +397,24 @@ public class PartnerServiceImpl implements PartnerService {
 
     // ================= SPARE ITEM =================
 
+    private void validateSpareItemActionAllowed(Partner partner) {
+        if (partner.getStatus() != PartnerStatus.APPROVED) {
+            throw new RuntimeException("Partner profile is not approved yet.");
+        }
+
+        if (partner.getAgreedAgreement() == null || !partner.getAgreementAccepted()) {
+            throw new RuntimeException("You must accept the latest agreement before creating, updating, or deleting spare items.");
+        }
+    }
+
     @Override
     public SpareItemResponseDto createSpareItemRequest(Integer partnerId, SpareItemRequestDto requestDto, List<MultipartFile> images) {
         // Fetch partner or throw exception if not found
         Partner partner = partnerRepo.findById(partnerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Partner not found with id " + partnerId));
+
+        // ===== Validate profile approval and agreement =====
+        validateSpareItemActionAllowed(partner);
 
         // HERE is the correct place
         StockStatus stockStatus =
@@ -372,10 +447,23 @@ public class PartnerServiceImpl implements PartnerService {
 
     @Override
     public SpareItemResponseDto requestSpareItemUpdate(Integer partnerId, Integer spareItemId, SpareItemRequestDto requestDto, List<MultipartFile> images) {
+        // Fetch partner
+        Partner partner = partnerRepo.findById(partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Partner not found with id " + partnerId));
+
+
+        // ===== Validate profile approval and agreement =====
+        validateSpareItemActionAllowed(partner);
+
         // Fetch the spare item or throw exception if not found
         SpareItem item = spareItemRepo.findById(spareItemId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Spare item not found with id " + spareItemId));
+
+        // Validate ownership
+        if (!item.getPartner().getPartnerId().equals(partnerId)) {
+            throw new RuntimeException("You cannot update a spare item that does not belong to you");
+        }
 
         // Parse stock status safely
         StockStatus stockStatus;
@@ -413,6 +501,13 @@ public class PartnerServiceImpl implements PartnerService {
 
     @Override
     public SpareItemResponseDto requestSpareItemDelete(Integer partnerId, Integer spareItemId) {
+        // Fetch partner
+        Partner partner = partnerRepo.findById(partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Partner not found with id " + partnerId));
+
+        // ===== Validate profile approval and agreement =====
+        validateSpareItemActionAllowed(partner);
+
         // Fetch the spare item or throw exception if not found
         SpareItem item = spareItemRepo.findById(spareItemId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -433,22 +528,49 @@ public class PartnerServiceImpl implements PartnerService {
 
     @Override
     public SpareItemResponseDto approveOrRejectSpareItem(Integer spareItemId, boolean approve, String rejectionReason, Integer approverId) {
-        // Fetch the spare item or throw exception
+        // Fetch the spare item
         SpareItem item = spareItemRepo.findById(spareItemId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Spare item not found with id " + spareItemId));
+                .orElseThrow(() -> new ResourceNotFoundException("Spare item not found with id " + spareItemId));
 
-        // Fetch the approver user or throw exception
+        // Only pending items can be approved/rejected
+        if (item.getStatus() != SpareItemStatus.PENDING && item.getStatus() != SpareItemStatus.UPDATE_PENDING) {
+            throw new RuntimeException("Only pending or update-pending items can be approved or rejected");
+        }
+
+        // Fetch the approver
         User approver = userRepo.findById(approverId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Approver not found with id " + approverId));
+                .orElseThrow(() -> new ResourceNotFoundException("Approver not found with id " + approverId));
 
-        // Update status based on approval
+        // Ensure approver has proper role
+        if (approver.getRole() != Role.ADMIN && approver.getRole() != Role.MANAGER) {
+            throw new RuntimeException("You are not authorized to approve or reject spare items");
+        }
+
         if (approve) {
             item.setStatus(SpareItemStatus.APPROVED);
-            item.setRejectionReason(null); // clear rejection reason if previously set
+            item.setRejectionReason(null);
+
+            // If this was an update request, copy pending fields to main fields
+            if (item.getStatus() == SpareItemStatus.UPDATE_PENDING) {
+                if (item.getPendingName() != null) item.setName(item.getPendingName());
+                if (item.getPendingBrand() != null) item.setBrand(item.getPendingBrand());
+                if (item.getPendingDescription() != null) item.setDescription(item.getPendingDescription());
+                if (item.getPendingCategory() != null) item.setCategory(item.getPendingCategory());
+                if (item.getPendingPrice() != null) item.setPrice(item.getPendingPrice());
+                if (item.getPendingQuantity() != null) item.setQuantity(item.getPendingQuantity());
+                if (item.getPendingImages() != null && !item.getPendingImages().isEmpty()) item.setImages(item.getPendingImages());
+
+                // Clear pending fields
+                item.setPendingName(null);
+                item.setPendingBrand(null);
+                item.setPendingDescription(null);
+                item.setPendingCategory(null);
+                item.setPendingPrice(null);
+                item.setPendingQuantity(null);
+                item.setPendingImages(null);
+            }
         } else {
-            item.setStatus(SpareItemStatus.DELETED); // rejected
+            item.setStatus(SpareItemStatus.DELETED);
             item.setRejectionReason(rejectionReason != null ? rejectionReason : "No reason provided");
         }
 
