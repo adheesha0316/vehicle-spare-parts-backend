@@ -36,6 +36,7 @@ import com.spareparts.spareparts_backend.repo.UserRepo;
 import com.spareparts.spareparts_backend.service.PartnerService;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -63,33 +64,36 @@ public class PartnerServiceImpl implements PartnerService {
     private final SpareItemRepo spareItemRepo;
     private final UserRepo userRepo;
     private final PartnerAgreementRepo partnerAgreementRepo;
+    private final ModelMapper modelMapper;
 
     private final Path ROOT_DIR = Paths.get("uploads/partner");
 
     @Autowired
-    public PartnerServiceImpl(PartnerRepo partnerRepo, PartnerAgreementRepo agreementRepo, SpareItemRepo spareItemRepo, UserRepo userRepo, PartnerAgreementRepo partnerAgreementRepo) {
+    public PartnerServiceImpl(PartnerRepo partnerRepo, PartnerAgreementRepo agreementRepo, SpareItemRepo spareItemRepo, UserRepo userRepo, PartnerAgreementRepo partnerAgreementRepo, ModelMapper modelMapper) {
         this.partnerRepo = partnerRepo;
         this.agreementRepo = agreementRepo;
         this.spareItemRepo = spareItemRepo;
         this.userRepo = userRepo;
         this.partnerAgreementRepo = partnerAgreementRepo;
+        this.modelMapper = modelMapper;
     }
 
 
     // ================= PARTNER PROFILE ================
     @Override
     public PartnerResponseDto createPartnerProfile(Integer userId, PartnerRequestDto requestDto, MultipartFile nicFront, MultipartFile nicBack, MultipartFile profileImage) {
-        // Fetch user or throw exception if not found
+        // ===== Fetch User =====
         User user = userRepo.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found with id " + userId));
 
-        // Manager check
-        if(user.getRole().equals(Role.MANAGER)) {
+        // ===== Role check =====
+        if (user.getRole() == Role.MANAGER) {
             throw new RuntimeException("Manager cannot register as Partner");
         }
 
-        // Check if email already registered as Partner
-        if(partnerRepo.existsByUser_Email(user.getEmail())) {
+        // ===== Duplicate checks =====
+        if (partnerRepo.existsByUser_Email(user.getEmail())) {
             throw new RuntimeException("This email is already registered as a Partner");
         }
 
@@ -97,25 +101,28 @@ public class PartnerServiceImpl implements PartnerService {
             throw new RuntimeException("Partner profile already exists");
         }
 
-        Partner partner = Partner.builder()
-                .user(user)
-                .fullName(requestDto.getFullName())
-                .phone(requestDto.getPhone())
-                .nicNumber(requestDto.getNicNumber())
-                .shopName(requestDto.getShopName())
-                .shopAddress(requestDto.getShopAddress())
-                .branchName(requestDto.getBranchName())
-                .nicFrontImage(saveFile(null, nicFront, "nicFront"))
-                .nicBackImage(saveFile(null, nicBack, "nicBack"))
-                .profileImage(saveFile(null, profileImage, "profile"))
-                .status(PartnerStatus.PENDING)
-                .agreementSignedAt(null)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
+        // ===== Map DTO =====
+        Partner partner = modelMapper.map(requestDto, Partner.class);
+        partner.setUser(user);
+        partner.setStatus(PartnerStatus.PENDING);
+        partner.setCreatedAt(LocalDateTime.now());
+        partner.setUpdatedAt(LocalDateTime.now());
 
-        partnerRepo.save(partner);
-        return mapToDto(partner);
+        // ===== Store files (NEW STRUCTURE) =====
+        if (nicFront != null && !nicFront.isEmpty()) {
+            partner.setNicFrontImage(storeFile(nicFront, "nicFront"));
+        }
+
+        if (nicBack != null && !nicBack.isEmpty()) {
+            partner.setNicBackImage(storeFile(nicBack, "nicBack"));
+        }
+
+        if (profileImage != null && !profileImage.isEmpty()) {
+            partner.setProfileImage(storeFile(profileImage, "profileImg"));
+        }
+
+        Partner savedPartner = partnerRepo.save(partner);
+        return mapToDto(savedPartner);
     }
 
     @Override
@@ -793,6 +800,37 @@ public class PartnerServiceImpl implements PartnerService {
             throw new RuntimeException("Failed to store file", e);
         }
     }
+
+    private String storeFile(MultipartFile file, String folderName) {
+        if (file == null || file.isEmpty()) return null;
+
+        try {
+            String filename = StringUtils.cleanPath(file.getOriginalFilename());
+            String timestamp = LocalDateTime.now()
+                    .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+
+            String ext = filename.contains(".")
+                    ? filename.substring(filename.lastIndexOf("."))
+                    : "";
+
+            String storedFileName = timestamp + ext;
+
+            // uploads/partner/{folderName}
+            Path dir = ROOT_DIR.resolve(folderName);
+            if (!Files.exists(dir)) {
+                Files.createDirectories(dir);
+            }
+
+            Path target = dir.resolve(storedFileName);
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+            return target.toString();
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to store file in " + folderName, e);
+        }
+    }
+
 
     private PartnerResponseDto mapToDto(Partner partner) {
         return new PartnerResponseDto(

@@ -30,7 +30,7 @@ public interface PartnerAgreementRepo extends JpaRepository<PartnerAgreement, In
 
     List<PartnerAgreement> findByIsLatestFalse();
 
-    // 🔥 Custom method: mark all agreements as not latest
+    // Custom method: mark all agreements as not latest
     @Modifying
     @Transactional
     @Query("UPDATE PartnerAgreement pa SET pa.isLatest = false WHERE pa.isLatest = true")
@@ -38,7 +38,7 @@ public interface PartnerAgreementRepo extends JpaRepository<PartnerAgreement, In
 
     // ================= DELETE =================
 
-    // 🔥 REMOVE all old agreements (not latest)
+    // REMOVE all old agreements (not latest)
     @Modifying
     @Transactional
     @Query("""
