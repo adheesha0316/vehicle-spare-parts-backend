@@ -1,6 +1,7 @@
 package com.spareparts.spareparts_backend.entity;
 
 
+import com.spareparts.spareparts_backend.enums.AgreementApprovalStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,14 +22,17 @@ public class PartnerSignedAgreement {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    // ================= Partner =================
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "partner_id", nullable = false)
     private Partner partner;
 
+    // ================= Agreement Template =================
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "agreement_id", nullable = false)
     private PartnerAgreement agreement;
 
+    // ================= Signed Info =================
     @Column(name = "signed_at", nullable = false)
     private LocalDateTime signedAt;
 
@@ -37,4 +41,21 @@ public class PartnerSignedAgreement {
 
     @Column(name = "version", nullable = false)
     private String version;
+
+    // ================= Approval Flow =================
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false)
+    private AgreementApprovalStatus approvalStatus;
+    // PENDING, APPROVED, REJECTED
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by")
+    private User approvedBy; // ADMIN or MANAGER
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
 }

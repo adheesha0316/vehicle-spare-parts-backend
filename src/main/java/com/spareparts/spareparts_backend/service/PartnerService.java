@@ -1,10 +1,8 @@
 package com.spareparts.spareparts_backend.service;
 
-import com.spareparts.spareparts_backend.dto.PartnerRequestDto;
-import com.spareparts.spareparts_backend.dto.PartnerResponseDto;
-import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
-import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
+import com.spareparts.spareparts_backend.dto.*;
 import com.spareparts.spareparts_backend.entity.PartnerAgreement;
+import com.spareparts.spareparts_backend.entity.PartnerSignedAgreement;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -93,11 +91,49 @@ public interface PartnerService {
 
 
     // ================= Agreement =================
-    PartnerAgreement generateAgreementPdf(String partnerName, String companyName,String conditions, String version);
+    PartnerAgreement generateAgreementPdf(String partnerName, String companyName,String conditions, String version, boolean saveToDb);
 
     String getCurrentAgreementConditions();
 
     void removeAllOldAgreements();
+
+    // ================= PARTNER SIGNED AGREEMENTS =================
+
+
+    /**
+     * Get all signed agreements for a partner.
+     */
+    List<PartnerSignedAgreement> getSignedAgreementsByPartner(Integer partnerId);
+
+    /**
+     * Get the latest signed agreement for a partner.
+     */
+    PartnerSignedAgreement getLatestSignedAgreementByPartner(Integer partnerId);
+
+
+    // ================= PARTNER SIGNED AGREEMENT APPROVAL =================
+
+    /**
+     * Approve a partner signed agreement
+     * Can be performed by ADMIN or MANAGER
+     */
+    PartnerSignedAgreement approveSignedAgreement(
+            Integer signedAgreementId,
+            Integer approver
+    );
+
+    /**
+     * Reject a partner signed agreement
+     * Can be performed by ADMIN or MANAGER
+     */
+    PartnerSignedAgreement rejectSignedAgreement(
+            Integer signedAgreementId,
+            Integer approver,
+            String rejectionReason
+    );
+
+    PartnerSignedAgreementDto mapToDto(PartnerSignedAgreement entity);
+
 
     // ================= IMPORTANT UTILS =================
 

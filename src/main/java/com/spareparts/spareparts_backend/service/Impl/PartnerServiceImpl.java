@@ -5,7 +5,6 @@ import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.events.Event;
 import com.itextpdf.kernel.events.IEventHandler;
 import com.itextpdf.kernel.events.PdfDocumentEvent;
-import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.geom.Rectangle;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfPage;
@@ -16,24 +15,19 @@ import com.itextpdf.layout.Canvas;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.element.*;
-import com.itextpdf.layout.properties.HorizontalAlignment;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
-import com.spareparts.spareparts_backend.dto.PartnerRequestDto;
-import com.spareparts.spareparts_backend.dto.PartnerResponseDto;
-import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
-import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
+import com.spareparts.spareparts_backend.dto.*;
 import com.spareparts.spareparts_backend.entity.*;
 import com.spareparts.spareparts_backend.enums.*;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.repo.*;
 import com.spareparts.spareparts_backend.service.PartnerService;
+import jakarta.transaction.Transactional;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -50,9 +44,11 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class PartnerServiceImpl implements PartnerService {
 
     private final PartnerRepo partnerRepo;
@@ -316,11 +312,6 @@ public class PartnerServiceImpl implements PartnerService {
     @Override
     public PartnerResponseDto acceptAgreement(Integer partnerId, MultipartFile signedAgreement) {
 
-        // ================= Validate file =================
-        if (signedAgreement == null || signedAgreement.isEmpty()) {
-            throw new IllegalArgumentException("Signed agreement file is required");
-        }
-
         // ================= Fetch Partner =================
         Partner partner = partnerRepo.findById(partnerId)
                 .orElseThrow(() ->
@@ -338,13 +329,27 @@ public class PartnerServiceImpl implements PartnerService {
                         .orElseThrow(() -> new ResourceNotFoundException("No active agreement found"));
 
         // ================= Save signed PDF =================
-        String filePath = storeSignedAgreement(signedAgreement, partnerId);
+        // This method stores the file and returns the path
+        String filePath = storeSignedAgreement(signedAgreement, partnerId, latestAgreement.getVersion());
+
+        // ================= Save PartnerSignedAgreement record =================
+        PartnerSignedAgreement signedAgreementEntity = PartnerSignedAgreement.builder()
+                .partner(partner)
+                .agreement(latestAgreement)
+                .signedAt(LocalDateTime.now())
+                .filePath(filePath)
+                .version(latestAgreement.getVersion())
+                .approvalStatus(AgreementApprovalStatus.PENDING) // initially pending approval
+                .build();
+
+        partnerSignedAgreementRepo.save(signedAgreementEntity);
 
         // ================= Update Partner =================
         partner.setAgreedAgreement(latestAgreement);
         partner.setAgreementSignedAt(LocalDateTime.now());
         partner.setSignedAgreementPath(filePath);
         partner.setAgreementAccepted(true);
+        partner.setAgreementStatus(PartnerAgreementStatus.PENDING); // waiting admin approval
 
         partnerRepo.save(partner);
 
@@ -879,45 +884,17 @@ public class PartnerServiceImpl implements PartnerService {
         agreementRepo.deleteAllOldAgreements();
     }
 
-    @Override
-    public PartnerSignedAgreement saveSignedAgreement(Integer partnerId, MultipartFile signedAgreement) {
-        if (signedAgreement == null || signedAgreement.isEmpty()) {
-            throw new IllegalArgumentException("Signed agreement file is required");
-        }
-
-        // Fetch partner
-        Partner partner = partnerRepo.findById(partnerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Partner not found with id " + partnerId));
-
-        // Store file
-        String filePath = storeSignedAgreement(signedAgreement, partnerId);
-
-        // Create PartnerSignedAgreement entity
-        PartnerSignedAgreement signedAgreementEntity = PartnerSignedAgreement.builder()
-                .partner(partner)
-                .agreement(partner.getAgreedAgreement()) // link to latest accepted agreement
-                .signedAt(LocalDateTime.now())
-                .filePath(filePath)
-                .version(partner.getAgreedAgreement() != null ? partner.getAgreedAgreement().getVersion() : "N/A")
-                .build();
-
-        return partnerSignedAgreementRepo.save(signedAgreementEntity);
-    }
 
     @Override
     public List<PartnerSignedAgreement> getSignedAgreementsByPartner(Integer partnerId) {
-        // Fetch partner or throw exception
         Partner partner = partnerRepo.findById(partnerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Partner not found with id " + partnerId));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Partner not found with id " + partnerId)
+                );
 
-        // Fetch all signed agreements for this partner, newest first
-        List<PartnerSignedAgreement> agreements = partnerSignedAgreementRepo.findByPartnerOrderBySignedAtDesc(partner);
+        return partnerSignedAgreementRepo
+                .findByPartnerOrderBySignedAtDesc(partner);
 
-        if (agreements.isEmpty()) {
-            throw new ResourceNotFoundException("No signed agreements found for partner " + partnerId);
-        }
-
-        return agreements;
     }
 
     @Override
@@ -927,6 +904,72 @@ public class PartnerServiceImpl implements PartnerService {
 
         return partnerSignedAgreementRepo.findTopByPartnerOrderBySignedAtDesc(partner)
                 .orElseThrow(() -> new ResourceNotFoundException("No signed agreements found for partner " + partnerId));
+    }
+
+    @Override
+    public PartnerSignedAgreement approveSignedAgreement(Integer signedAgreementId, Integer approverId) {
+        PartnerSignedAgreement signedAgreement = partnerSignedAgreementRepo.findById(signedAgreementId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Signed agreement not found with id " + signedAgreementId
+                ));
+
+        if (signedAgreement.getApprovalStatus() == AgreementApprovalStatus.APPROVED) {
+            throw new IllegalStateException("Signed agreement already approved.");
+        }
+
+        // Fetch User entity
+        User approver = userRepo.findById(approverId)
+                .orElseThrow(() -> new ResourceNotFoundException("Approver not found with id " + approverId));
+
+        signedAgreement.setApprovalStatus(AgreementApprovalStatus.APPROVED);
+        signedAgreement.setApprovedBy(approver); // pass User entity
+        signedAgreement.setApprovedAt(LocalDateTime.now());
+        signedAgreement.setRejectionReason(null);
+
+        // Update Partner
+        Partner partner = signedAgreement.getPartner();
+        partner.setAgreedAgreement(signedAgreement.getAgreement());
+        partner.setAgreementAccepted(true);
+        partner.setAgreementSignedAt(signedAgreement.getSignedAt());
+        partner.setAgreementStatus(PartnerAgreementStatus.APPROVED);
+
+        partnerRepo.save(partner);
+
+        return partnerSignedAgreementRepo.save(signedAgreement);
+    }
+
+    @Override
+    public PartnerSignedAgreement rejectSignedAgreement(Integer signedAgreementId, Integer approverId, String rejectionReason) {
+        if (rejectionReason == null || rejectionReason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Rejection reason is required.");
+        }
+
+        PartnerSignedAgreement signedAgreement = partnerSignedAgreementRepo.findById(signedAgreementId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Signed agreement not found with id " + signedAgreementId
+                ));
+
+        if (signedAgreement.getApprovalStatus() == AgreementApprovalStatus.APPROVED) {
+            throw new IllegalStateException("Approved agreement cannot be rejected.");
+        }
+
+        // Fetch User entity
+        User approver = userRepo.findById(approverId)
+                .orElseThrow(() -> new ResourceNotFoundException("Approver not found with id " + approverId));
+
+        signedAgreement.setApprovalStatus(AgreementApprovalStatus.REJECTED);
+        signedAgreement.setApprovedBy(approver); // pass User entity
+        signedAgreement.setApprovedAt(LocalDateTime.now());
+        signedAgreement.setRejectionReason(rejectionReason);
+
+        // Update Partner
+        Partner partner = signedAgreement.getPartner();
+        partner.setAgreementAccepted(false);
+        partner.setAgreementStatus(PartnerAgreementStatus.REJECTED);
+
+        partnerRepo.save(partner);
+
+        return partnerSignedAgreementRepo.save(signedAgreement);
     }
 
     @Override
@@ -1004,44 +1047,53 @@ public class PartnerServiceImpl implements PartnerService {
     }
 
     /**
-     * Stores a partner's signed agreement file in a dedicated folder.
-     * Path: uploads/partner/signed-agreements/{partnerId}/
-     * Filename: timestamp + original extension
+     * Stores a partner's signed agreement file.
      *
-     * @param signedAgreement The MultipartFile uploaded by the partner
-     * @param partnerId       The partner's ID
-     * @return Full path of the stored file
+     * Path:
+     * uploads/partner/signed-agreements/{partnerId}/
+     *
+     * Filename:
+     * signed_agreement_v{version}_{timestamp}.pdf
      */
-    public String storeSignedAgreement(MultipartFile signedAgreement, Integer partnerId) {
+    public String storeSignedAgreement(
+            MultipartFile signedAgreement,
+            Integer partnerId,
+            String agreementVersion
+    ) {
         if (signedAgreement == null || signedAgreement.isEmpty()) {
             throw new IllegalArgumentException("Signed agreement file is required");
         }
 
         try {
-            // Clean filename
-            String originalFilename = StringUtils.cleanPath(signedAgreement.getOriginalFilename());
-            String ext = originalFilename.contains(".")
-                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                    : "";
+            // Extract extension
+            String originalName = StringUtils.cleanPath(
+                    Objects.requireNonNull(signedAgreement.getOriginalFilename())
+            );
 
-            // Timestamp-based filename
+            String extension = originalName.contains(".")
+                    ? originalName.substring(originalName.lastIndexOf("."))
+                    : ".pdf";
+
+            // Timestamped file name
             String timestamp = LocalDateTime.now()
                     .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-            String storedFileName = timestamp + ext;
+            String fileName = "signed_agreement_v" + agreementVersion + "_" + timestamp + extension;
 
-            // Target directory: uploads/partner/signed-agreements/{partnerId}
-            Path dir = ROOT_DIR.resolve("signed-agreements").resolve(String.valueOf(partnerId));
-            if (!Files.exists(dir)) {
-                Files.createDirectories(dir);
+            // Directory: uploads/partner/signed-agreements/{partnerId}
+            Path directory = ROOT_DIR.resolve("signed-agreements").resolve(String.valueOf(partnerId));
+            if (!Files.exists(directory)) {
+                Files.createDirectories(directory);
             }
 
-            // Target file path
-            Path target = dir.resolve(storedFileName);
+            // Save file
+            Path targetPath = directory.resolve(fileName);
+            Files.copy(
+                    signedAgreement.getInputStream(),
+                    targetPath,
+                    StandardCopyOption.REPLACE_EXISTING
+            );
 
-            // Save the file
-            Files.copy(signedAgreement.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-
-            return target.toString();
+            return targetPath.toString();
 
         } catch (IOException e) {
             throw new RuntimeException(
@@ -1050,6 +1102,26 @@ public class PartnerServiceImpl implements PartnerService {
         }
     }
 
+
+    @Override
+    public PartnerSignedAgreementDto mapToDto(PartnerSignedAgreement entity) {
+        return PartnerSignedAgreementDto.builder()
+                .id(entity.getId())
+                .partnerId(entity.getPartner().getPartnerId())
+                .agreementId(entity.getAgreement().getAgreementId())
+                .agreementVersion(entity.getVersion())
+                .filePath(entity.getFilePath())
+                .signedAt(entity.getSignedAt())
+                .approvalStatus(entity.getApprovalStatus())
+                .approvedById(
+                        entity.getApprovedBy() != null
+                                ? entity.getApprovedBy().getUserId()
+                                : null
+                )
+                .approvedAt(entity.getApprovedAt())
+                .rejectionReason(entity.getRejectionReason())
+                .build();
+    }
 
 
     private PartnerResponseDto mapToDto(Partner partner) {

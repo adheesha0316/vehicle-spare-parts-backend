@@ -3,11 +3,13 @@ package com.spareparts.spareparts_backend.dto;
 import com.spareparts.spareparts_backend.enums.PartnerStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class PartnerResponseDto {
     private Integer partnerId;
     private Integer userId;

@@ -1,11 +1,9 @@
 package com.spareparts.spareparts_backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spareparts.spareparts_backend.dto.PartnerRequestDto;
-import com.spareparts.spareparts_backend.dto.PartnerResponseDto;
-import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
-import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
+import com.spareparts.spareparts_backend.dto.*;
 import com.spareparts.spareparts_backend.entity.PartnerAgreement;
+import com.spareparts.spareparts_backend.entity.PartnerSignedAgreement;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.service.PartnerService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/partners")
+@RequestMapping("/api/v1/partner")
 @RequiredArgsConstructor
 @CrossOrigin
 public class PartnerController {
@@ -146,25 +146,30 @@ public class PartnerController {
     }
 
     // ================= PARTNER AGREEMENT =================
-    @GetMapping("/agreement/download/{agreementId}")
+    @GetMapping("/agreement/download/{partnerId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER')")
-    public ResponseEntity<?> downloadAgreement(@PathVariable Integer agreementId) {
+    public ResponseEntity<?> downloadAgreement(@PathVariable Integer partnerId) {
         try {
-            byte[] file = partnerService.downloadAgreement(agreementId);
+            byte[] file = partnerService.downloadAgreement(partnerId);
 
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename=partner-agreement-" + agreementId + ".pdf")
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=partner-agreement-" + partnerId + ".pdf"
+                    )
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(file);
 
         } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(404)
-                    .body(Map.of(
-                            "message", e.getMessage()
-                    ));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(500)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", e.getMessage()));
+
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", e.getMessage()));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of(
                             "message", "Failed to download agreement",
                             "error", e.getMessage()
@@ -173,16 +178,64 @@ public class PartnerController {
     }
 
 
-    @PostMapping(value = "/agreement/accept/{partnerId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    // ================= ACCEPT PARTNER AGREEMENT =================
+    @PostMapping(
+            value = "/agreement/accept/{partnerId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     @PreAuthorize("hasRole('PARTNER')")
     public ResponseEntity<PartnerResponseDto> acceptAgreement(
             @PathVariable Integer partnerId,
-            @RequestPart MultipartFile signedAgreement
+            @RequestPart("signedAgreement") MultipartFile signedAgreement
+    ) {
+        try {
+            PartnerResponseDto partnerDto = partnerService.acceptAgreement(partnerId, signedAgreement);
+            return ResponseEntity.ok(partnerDto);
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+
+    /**
+     * ADMIN & MANAGER ONLY
+     */
+    @GetMapping("/{partnerId}/signed-agreements")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<List<PartnerSignedAgreementDto>> getSignedAgreementsByPartner(
+            @PathVariable Integer partnerId
+    ) {
+        List<PartnerSignedAgreementDto> dtos = partnerService
+                .getSignedAgreementsByPartner(partnerId) // returns List<PartnerSignedAgreement>
+                .stream()
+                .map(partnerService::mapToDto) // convert each entity to DTO
+                .toList();
+
+        return ResponseEntity.ok(dtos);
+    }
+
+
+    /**
+     * ADMIN & MANAGER ONLY
+     */
+    @GetMapping("/{partnerId}/signed-agreements/latest")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<PartnerSignedAgreement> getLatestSignedAgreementByPartner(
+            @PathVariable Integer partnerId
     ) {
         return ResponseEntity.ok(
-                partnerService.acceptAgreement(partnerId, signedAgreement)
+                partnerService.getLatestSignedAgreementByPartner(partnerId)
         );
     }
+
+
 
     // ================= ADMIN AGREEMENT =================
 
@@ -198,7 +251,8 @@ public class PartnerController {
                             "Common Partner",   // placeholder partner name
                             "Company Name",     // placeholder company name
                             conditions,
-                            version
+                            version,
+                            true
                     );
 
             return ResponseEntity.ok(agreement);

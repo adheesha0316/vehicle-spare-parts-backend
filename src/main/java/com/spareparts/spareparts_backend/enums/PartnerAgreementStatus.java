@@ -1,6 +1,8 @@
 package com.spareparts.spareparts_backend.enums;
 
 public enum PartnerAgreementStatus {
+    PENDING,
+
     NOT_REQUIRED,        // No agreement exists yet (platform just started)
 
     REQUIRED,            // New agreement available – partner must agree
