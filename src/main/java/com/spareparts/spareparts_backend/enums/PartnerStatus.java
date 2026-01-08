@@ -4,5 +4,6 @@ public enum PartnerStatus {
     PENDING,
     APPROVED,
     REJECTED,
+    SUSPENDED,
     DELETED
 }
