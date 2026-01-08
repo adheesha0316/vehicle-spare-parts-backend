@@ -1,11 +1,14 @@
 package com.spareparts.spareparts_backend.config;
 
 import com.spareparts.spareparts_backend.entity.Manager;
+import com.spareparts.spareparts_backend.entity.Partner;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.ManagerStatus;
+import com.spareparts.spareparts_backend.enums.PartnerStatus;
 import com.spareparts.spareparts_backend.enums.Role;
 import com.spareparts.spareparts_backend.enums.UserStatus;
 import com.spareparts.spareparts_backend.repo.ManagerRepo;
+import com.spareparts.spareparts_backend.repo.PartnerRepo;
 import com.spareparts.spareparts_backend.service.Impl.CustomUserDetailsService;
 
 import com.spareparts.spareparts_backend.service.UserService;
@@ -31,17 +34,11 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JWTAuthenticationFilter extends OncePerRequestFilter {
 
-    @Autowired
     private final JWTTokenGenerator jwtTokenGenerator;
-
-    @Autowired
     private final CustomUserDetailsService userDetailsService;
-
-    @Autowired
     private final UserService userService;
-
-    @Autowired
     private final ManagerRepo managerRepo;
+    private final PartnerRepo partnerRepo;
 
 
     // -------- PUBLIC ENDPOINTS -------- //
@@ -99,6 +96,33 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
 
             if (manager.getStatus() != ManagerStatus.APPROVED) {
                 sendError(response, 403, "Manager not approved");
+                return;
+            }
+        }
+
+        // ---------- PARTNER CHECK ----------
+        if (user.getRole() == Role.PARTNER) {
+
+            Partner partner = partnerRepo.findByUser_UserId(user.getUserId())
+                    .orElse(null);
+
+            if (partner == null) {
+                sendError(response, 403, "Partner profile not found");
+                return;
+            }
+
+            if (partner.getStatus() == PartnerStatus.DELETED) {
+                sendError(response, 403, "Partner account deleted");
+                return;
+            }
+
+            if (partner.getStatus() == PartnerStatus.SUSPENDED) {
+                sendError(response, 403, "Partner account suspended");
+                return;
+            }
+
+            if (partner.getStatus() != PartnerStatus.APPROVED) {
+                sendError(response, 403, "Partner not approved");
                 return;
             }
         }
