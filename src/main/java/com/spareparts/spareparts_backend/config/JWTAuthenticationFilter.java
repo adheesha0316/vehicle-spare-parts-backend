@@ -1,12 +1,11 @@
 package com.spareparts.spareparts_backend.config;
 
+import com.spareparts.spareparts_backend.entity.Customer;
 import com.spareparts.spareparts_backend.entity.Manager;
 import com.spareparts.spareparts_backend.entity.Partner;
 import com.spareparts.spareparts_backend.entity.User;
-import com.spareparts.spareparts_backend.enums.ManagerStatus;
-import com.spareparts.spareparts_backend.enums.PartnerStatus;
-import com.spareparts.spareparts_backend.enums.Role;
-import com.spareparts.spareparts_backend.enums.UserStatus;
+import com.spareparts.spareparts_backend.enums.*;
+import com.spareparts.spareparts_backend.repo.CustomerRepo;
 import com.spareparts.spareparts_backend.repo.ManagerRepo;
 import com.spareparts.spareparts_backend.repo.PartnerRepo;
 import com.spareparts.spareparts_backend.service.Impl.CustomUserDetailsService;
@@ -39,6 +38,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
     private final UserService userService;
     private final ManagerRepo managerRepo;
     private final PartnerRepo partnerRepo;
+    private final CustomerRepo customerRepo;
 
 
     // -------- PUBLIC ENDPOINTS -------- //
@@ -123,6 +123,33 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
 
             if (partner.getStatus() != PartnerStatus.APPROVED) {
                 sendError(response, 403, "Partner not approved");
+                return;
+            }
+        }
+
+        // ---------- CUSTOMER VALIDATION ----------
+        if (user.getRole() == Role.CUSTOMER) {
+
+            Customer customer = customerRepo.findByUser_UserId(user.getUserId())
+                    .orElse(null);
+
+            if (customer == null) {
+                sendError(response, 403, "Customer profile not found");
+                return;
+            }
+
+            if (customer.getStatus() == CustomerStatus.DELETED) {
+                sendError(response, 403, "Customer account deleted");
+                return;
+            }
+
+            if (customer.getStatus() == CustomerStatus.SUSPENDED) {
+                sendError(response, 403, "Customer account suspended");
+                return;
+            }
+
+            if (customer.getStatus() != CustomerStatus.ACTIVE) {
+                sendError(response, 403, "Customer account not active");
                 return;
             }
         }
