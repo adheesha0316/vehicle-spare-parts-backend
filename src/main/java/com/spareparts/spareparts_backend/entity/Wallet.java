@@ -19,9 +19,10 @@ public class Wallet {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer walletId;
 
-    @OneToOne
-    @JoinColumn(name = "customer_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)   // Lazy fetch avoids unnecessary join
+    @JoinColumn(name = "customer_id", nullable = false, unique = true)
     private Customer customer;
 
-    private BigDecimal balance;
+    @Column(nullable = false)
+    private BigDecimal balance = BigDecimal.ZERO;  // Always start with 0
 }

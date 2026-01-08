@@ -17,9 +17,10 @@ public class LoyaltyPoints {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @OneToOne
-    @JoinColumn(name = "customer_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id", nullable = false, unique = true)
     private Customer customer;
 
-    private Integer points;
+    @Column(nullable = false)
+    private Integer points = 0;  // Start with 0 points
 }
