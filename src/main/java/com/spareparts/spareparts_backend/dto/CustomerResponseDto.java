@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.dto;
 
+import com.spareparts.spareparts_backend.enums.CustomerStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,8 @@ public class CustomerResponseDto {
     private String address;
 
     private String profileImage;
+
+    private CustomerStatus status;
 
     private LocalDateTime createdAt;
 }

@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.entity;
 
+import com.spareparts.spareparts_backend.enums.CustomerStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -40,6 +41,11 @@ public class Customer {
 
     // ================= PROFILE IMAGE =================
     private String profileImagePath;   // uploads/customer/profile/xxx.jpg
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CustomerStatus status = CustomerStatus.ACTIVE;
+
 
     // ================= AUDIT =================
     @CreationTimestamp
