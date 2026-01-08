@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @Builder
 public class CustomerResponseDto {
     private Integer customerId;
+    private Integer userId;
 
     private String fullName;
     private String nicNumber;
@@ -22,7 +23,6 @@ public class CustomerResponseDto {
 
     private String profileImage;
 
-    private CustomerStatus status;
-
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }
