@@ -17,6 +17,15 @@ public interface CustomerRepo extends JpaRepository<Customer, Integer> {
     // Check if customer exists for a user
     boolean existsByUser_UserId(Integer userId);
 
-    // Get all ACTIVE customers (admin use)
+    // Find active customer by id
+    Optional<Customer> findByCustomerIdAndStatus(
+            Integer customerId,
+            CustomerStatus status
+    );
+
+    // Get all customers by status (Admin)
     List<Customer> findByStatus(CustomerStatus status);
+
+    // Exclude deleted customers
+    List<Customer> findByStatusNot(CustomerStatus status);
 }

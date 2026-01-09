@@ -1,0 +1,147 @@
+package com.spareparts.spareparts_backend.service.Impl;
+
+import com.spareparts.spareparts_backend.dto.CustomerRequestDto;
+import com.spareparts.spareparts_backend.dto.CustomerResponseDto;
+import com.spareparts.spareparts_backend.entity.Customer;
+import com.spareparts.spareparts_backend.entity.User;
+import com.spareparts.spareparts_backend.enums.CustomerStatus;
+import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
+import com.spareparts.spareparts_backend.repo.CustomerRepo;
+import com.spareparts.spareparts_backend.service.CustomerService;
+import com.spareparts.spareparts_backend.service.UserService;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class CustomerServiceImpl implements CustomerService {
+
+    private final CustomerRepo customerRepo;
+    private final UserService userService;
+
+    // ================= CUSTOMER PROFILE =================
+    @Override
+    public CustomerResponseDto createCustomer(CustomerRequestDto requestDto) {
+        // Get logged-in user from SecurityContext
+        User currentUser = userService.getUserEntityByEmail(
+                SecurityContextHolder.getContext()
+                        .getAuthentication()
+                        .getName()
+        );
+
+        if (customerRepo.existsByUser_UserId(currentUser.getUserId())) {
+            throw new IllegalStateException("Customer profile already exists");
+        }
+
+        Customer customer = Customer.builder()
+                .user(currentUser)
+                .fullName(requestDto.getFullName())
+                .nicNumber(requestDto.getNicNumber())
+                .phone(requestDto.getPhone())
+                .address(requestDto.getAddress())
+                .status(CustomerStatus.ACTIVE)
+                .build();
+
+        return mapToResponse(customerRepo.save(customer));
+    }
+
+    @Override
+    public CustomerResponseDto updateCustomerProfile(Integer customerId, CustomerRequestDto requestDto) {
+        Customer customer = getActiveCustomer(customerId);
+
+        customer.setFullName(requestDto.getFullName());
+        customer.setNicNumber(requestDto.getNicNumber());
+        customer.setPhone(requestDto.getPhone());
+        customer.setAddress(requestDto.getAddress());
+
+        return mapToResponse(customerRepo.save(customer));
+    }
+
+    // ================= GET PROFILE =================
+    @Override
+    public CustomerResponseDto getCustomerProfile(Integer customerId) {
+        return mapToResponse(getActiveCustomer(customerId));
+    }
+
+    // ================= ADMIN : GET ALL =================
+    @Override
+    public List<CustomerResponseDto> getAllCustomers() {
+        return customerRepo.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    // ================= DELETE FLOW =================
+    @Override
+    public void requestDeleteCustomer(Integer customerId) {
+        Customer customer = getActiveCustomer(customerId);
+        customer.setStatus(CustomerStatus.DELETE_REQUESTED);
+        customerRepo.save(customer);
+    }
+
+    @Override
+    public void approveDeleteCustomer(Integer customerId) {
+        Customer customer = customerRepo.findById(customerId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Customer not found")
+                );
+
+        customer.setStatus(CustomerStatus.DELETED);
+        customerRepo.save(customer);
+    }
+
+    @Override
+    public void rejectDeleteCustomer(Integer customerId, String reason) {
+        Customer customer = customerRepo.findById(customerId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Customer not found")
+                );
+
+        customer.setStatus(CustomerStatus.ACTIVE);
+        customerRepo.save(customer);
+    }
+
+    // ================= VALIDATION =================
+    @Override
+    public void validateActiveCustomer(Integer customerId) {
+        getActiveCustomer(customerId);
+    }
+
+
+    // ================= INTERNAL HELPERS =================
+    private Customer getActiveCustomer(Integer customerId) {
+        Customer customer = customerRepo.findById(customerId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Customer not found with id " + customerId
+                        )
+                );
+
+        if (customer.getStatus() != CustomerStatus.ACTIVE) {
+            throw new IllegalStateException("Customer is not active");
+        }
+
+        return customer;
+    }
+
+    private CustomerResponseDto mapToResponse(Customer customer) {
+        return CustomerResponseDto.builder()
+                .customerId(customer.getCustomerId())
+                .fullName(customer.getFullName())
+                .nicNumber(customer.getNicNumber())
+                .phone(customer.getPhone())
+                .address(customer.getAddress())
+                .status(customer.getStatus())
+                .createdAt(customer.getCreatedAt())
+                .updatedAt(customer.getUpdatedAt())
+                .build();
+    }
+
+
+}

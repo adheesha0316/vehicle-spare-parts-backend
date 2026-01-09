@@ -21,6 +21,8 @@ public class CustomerResponseDto {
     private String phone;
     private String address;
 
+    private CustomerStatus status;
+
     private String profileImage;
 
     private LocalDateTime createdAt;
