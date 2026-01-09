@@ -5,5 +5,7 @@ public enum CustomerStatus {
 
     SUSPENDED,     // Temporarily blocked (fraud, abuse, too many cancellations)
 
+    DELETE_REQUESTED,
+
     DELETED        // Account removed / soft delete
 }
