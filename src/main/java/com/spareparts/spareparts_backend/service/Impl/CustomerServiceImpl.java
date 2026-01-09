@@ -13,7 +13,14 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 @Service
@@ -25,17 +32,23 @@ public class CustomerServiceImpl implements CustomerService {
     private final UserService userService;
 
     // ================= CUSTOMER PROFILE =================
+
+
     @Override
-    public CustomerResponseDto createCustomer(CustomerRequestDto requestDto) {
-        // Get logged-in user from SecurityContext
+    public CustomerResponseDto createCustomer(CustomerRequestDto requestDto, MultipartFile profileImage) {
+        // Get logged-in user
         User currentUser = userService.getUserEntityByEmail(
-                SecurityContextHolder.getContext()
-                        .getAuthentication()
-                        .getName()
+                SecurityContextHolder.getContext().getAuthentication().getName()
         );
 
         if (customerRepo.existsByUser_UserId(currentUser.getUserId())) {
             throw new IllegalStateException("Customer profile already exists");
+        }
+
+        // Handle profile image if provided
+        String imagePath = null;
+        if (profileImage != null && !profileImage.isEmpty()) {
+            imagePath = storeProfileImage(profileImage, null);
         }
 
         Customer customer = Customer.builder()
@@ -44,6 +57,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .nicNumber(requestDto.getNicNumber())
                 .phone(requestDto.getPhone())
                 .address(requestDto.getAddress())
+                .profileImagePath(imagePath)
                 .status(CustomerStatus.ACTIVE)
                 .build();
 
@@ -51,18 +65,26 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public CustomerResponseDto updateCustomerProfile(Integer customerId, CustomerRequestDto requestDto) {
+    public CustomerResponseDto updateCustomerProfile(Integer customerId, CustomerRequestDto requestDto, MultipartFile profileImage) {
         Customer customer = getActiveCustomer(customerId);
 
+        // Update text fields
         customer.setFullName(requestDto.getFullName());
         customer.setNicNumber(requestDto.getNicNumber());
         customer.setPhone(requestDto.getPhone());
         customer.setAddress(requestDto.getAddress());
 
+        // Handle profile image if provided
+        if (profileImage != null && !profileImage.isEmpty()) {
+            String imagePath = storeProfileImage(profileImage, customerId);
+            customer.setProfileImagePath(imagePath);
+        }
+
         return mapToResponse(customerRepo.save(customer));
     }
 
     // ================= GET PROFILE =================
+
     @Override
     public CustomerResponseDto getCustomerProfile(Integer customerId) {
         return mapToResponse(getActiveCustomer(customerId));
@@ -130,6 +152,28 @@ public class CustomerServiceImpl implements CustomerService {
         return customer;
     }
 
+    private String storeProfileImage(MultipartFile file, Integer customerId) {
+        try {
+            String folder = "uploads/customer/profileImg/";
+            File directory = new File(folder);
+            if (!directory.exists()) directory.mkdirs();
+
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null) originalFilename = "profile_" + customerId + ".jpg";
+
+            String filename = System.currentTimeMillis() + "_" + originalFilename.replaceAll("\\s+", "_");
+            Path filePath = Paths.get(folder, filename);
+
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            return filePath.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to store profile image", e);
+        }
+    }
+
+
+
     private CustomerResponseDto mapToResponse(Customer customer) {
         return CustomerResponseDto.builder()
                 .customerId(customer.getCustomerId())
@@ -137,6 +181,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .nicNumber(customer.getNicNumber())
                 .phone(customer.getPhone())
                 .address(customer.getAddress())
+                .profileImagePath(customer.getProfileImagePath())
                 .status(customer.getStatus())
                 .createdAt(customer.getCreatedAt())
                 .updatedAt(customer.getUpdatedAt())

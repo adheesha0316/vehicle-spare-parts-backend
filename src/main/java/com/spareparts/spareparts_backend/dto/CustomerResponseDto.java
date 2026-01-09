@@ -23,7 +23,7 @@ public class CustomerResponseDto {
 
     private CustomerStatus status;
 
-    private String profileImage;
+    private String profileImagePath;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
