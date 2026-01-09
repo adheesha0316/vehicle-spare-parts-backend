@@ -36,6 +36,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/manager/**").hasAnyRole("MANAGER","ADMIN")
                         // Partner endpoints
                         .requestMatchers("/api/v1/partner/**").hasAnyRole("PARTNER","ADMIN","MANAGER")
+                        // Customer endpoints
+                        .requestMatchers("/api/v1/customer/**").hasAnyRole("CUSTOMER","ADMIN")
                         // User endpoints
                         .requestMatchers("/api/v1/user/**").hasAnyRole("USER","ADMIN")
                         // Any other request requires authentication
