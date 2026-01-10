@@ -33,5 +33,6 @@ public interface CustomerService {
     // ================= STATUS / VALIDATION =================
     void validateActiveCustomer(Integer customerId);
 
-
+    // New helper method
+    boolean existsByUserId(Integer userId);
 }

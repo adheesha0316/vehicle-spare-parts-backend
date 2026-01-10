@@ -44,4 +44,7 @@ public interface UserService {
     // New method to check email
     boolean existsByEmail(String email);
 
+    // Save or update a User entity (needed for role updates)
+    User saveUser(User user);
+
 }

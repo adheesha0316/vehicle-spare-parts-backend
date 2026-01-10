@@ -136,12 +136,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User getCurrentUserEntity() {
-        String username = SecurityContextHolder
+        String email = SecurityContextHolder
                 .getContext()
                 .getAuthentication()
                 .getName();
 
-        return userRepo.findByUsername(username)
+        return userRepo.findByEmail(email)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Logged-in user not found")
                 );
@@ -156,6 +156,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public boolean existsByEmail(String email) {
         return userRepo.findByEmail(email).isPresent();
+    }
+
+    @Override
+    public User saveUser(User user) {
+        return userRepo.save(user);
     }
 
     // ---------------- HELPER: Convert User to DTO ---------------- //

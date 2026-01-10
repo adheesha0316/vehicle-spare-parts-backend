@@ -38,6 +38,7 @@ public class JWTTokenGenerator {
         return builder()
                 .setId(String.valueOf(user.getUserId()))
                 .setSubject(user.getEmail())
+                .claim("userId", user.getUserId())             // explicit userId claim
                 .claim("username", user.getUsername())
                 .claim("role", user.getRole().name())
                 .setIssuedAt(new Date())
@@ -68,7 +69,22 @@ public class JWTTokenGenerator {
     }
 
     public Integer extractUserId(String token) {
-        return getAllClaims(token).get("userId", Integer.class);
+        Claims claims = getAllClaims(token);
+        Object idObj = claims.get("userId"); // safer than Integer.class cast
+
+        if (idObj instanceof Number number) {
+            return number.intValue();
+        }
+
+        // fallback to reading .setId()
+        String idStr = claims.getId();
+        if (idStr != null) {
+            try {
+                return Integer.valueOf(idStr);
+            } catch (NumberFormatException ignored) {}
+        }
+
+        return null; // invalid or missing userId
     }
 
     public Date extractExpiration(String token) {

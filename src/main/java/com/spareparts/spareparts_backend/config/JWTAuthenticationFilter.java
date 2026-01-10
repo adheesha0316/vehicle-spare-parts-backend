@@ -64,8 +64,22 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String email = jwtTokenGenerator.extractEmail(token);
-        User user = userService.getUserEntityByEmail(email);
+
+        Integer userId;
+        try {
+            userId = jwtTokenGenerator.extractUserId(token);
+        } catch (Exception e) {
+            sendError(response, 401, "Invalid JWT token payload");
+            return;
+        }
+
+        User user;
+        try {
+            user = userService.getUserEntityById(userId);
+        } catch (Exception e) {
+            sendError(response, 403, "User not found");
+            return;
+        }
 
         // ---------- USER APPROVAL ----------
         if (user.getStatus() != UserStatus.APPROVED) {
@@ -73,90 +87,78 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // ---------- MANAGER CHECK ----------
-        if (user.getRole() == Role.MANAGER) {
 
-            Manager manager = managerRepo.findByUserUserId(user.getUserId())
-                    .orElse(null);
-
-            if (manager == null) {
-                sendError(response, 403, "Manager profile not found");
-                return;
+        // ---------- ROLE-SPECIFIC VALIDATION ----------
+        switch (user.getRole()) {
+            case MANAGER -> {
+                Manager manager = managerRepo.findByUserUserId(user.getUserId()).orElse(null);
+                if (manager == null) {
+                    sendError(response, 403, "Manager profile not found");
+                    return;
+                }
+                if (manager.getStatus() == ManagerStatus.DELETED) {
+                    sendError(response, 403, "Manager account deleted");
+                    return;
+                }
+                if (manager.getStatus() == ManagerStatus.SUSPENDED) {
+                    sendError(response, 403, "Manager account suspended");
+                    return;
+                }
+                if (manager.getStatus() != ManagerStatus.APPROVED) {
+                    sendError(response, 403, "Manager account not approved");
+                    return;
+                }
             }
-
-            if (manager.getStatus() == ManagerStatus.DELETED) {
-                sendError(response, 403, "Manager account deleted");
-                return;
+            case PARTNER -> {
+                Partner partner = partnerRepo.findByUser_UserId(user.getUserId()).orElse(null);
+                if (partner == null) {
+                    sendError(response, 403, "Partner profile not found");
+                    return;
+                }
+                if (partner.getStatus() == PartnerStatus.DELETED) {
+                    sendError(response, 403, "Partner account deleted");
+                    return;
+                }
+                if (partner.getStatus() == PartnerStatus.SUSPENDED) {
+                    sendError(response, 403, "Partner account suspended");
+                    return;
+                }
+                if (partner.getStatus() != PartnerStatus.APPROVED) {
+                    sendError(response, 403, "Partner account not approved");
+                    return;
+                }
             }
+            case CUSTOMER -> {
+                Customer customer = customerRepo.findByUser_UserId(user.getUserId()).orElse(null);
+                String path = request.getServletPath();
 
-            if (manager.getStatus() == ManagerStatus.SUSPENDED) {
-                sendError(response, 403, "Manager account suspended");
-                return;
-            }
+                // Allow missing customer profile only for creation endpoint
+                if (customer == null && !path.equals("/api/v1/customer/create")) {
+                    sendError(response, 403, "Customer profile not found");
+                    return;
+                }
 
-            if (manager.getStatus() != ManagerStatus.APPROVED) {
-                sendError(response, 403, "Manager not approved");
-                return;
-            }
-        }
-
-        // ---------- PARTNER CHECK ----------
-        if (user.getRole() == Role.PARTNER) {
-
-            Partner partner = partnerRepo.findByUser_UserId(user.getUserId())
-                    .orElse(null);
-
-            if (partner == null) {
-                sendError(response, 403, "Partner profile not found");
-                return;
-            }
-
-            if (partner.getStatus() == PartnerStatus.DELETED) {
-                sendError(response, 403, "Partner account deleted");
-                return;
-            }
-
-            if (partner.getStatus() == PartnerStatus.SUSPENDED) {
-                sendError(response, 403, "Partner account suspended");
-                return;
-            }
-
-            if (partner.getStatus() != PartnerStatus.APPROVED) {
-                sendError(response, 403, "Partner not approved");
-                return;
-            }
-        }
-
-        // ---------- CUSTOMER VALIDATION ----------
-        if (user.getRole() == Role.CUSTOMER) {
-
-            Customer customer = customerRepo.findByUser_UserId(user.getUserId())
-                    .orElse(null);
-
-            if (customer == null) {
-                sendError(response, 403, "Customer profile not found");
-                return;
-            }
-
-            if (customer.getStatus() == CustomerStatus.DELETED) {
-                sendError(response, 403, "Customer account deleted");
-                return;
-            }
-
-            if (customer.getStatus() == CustomerStatus.SUSPENDED) {
-                sendError(response, 403, "Customer account suspended");
-                return;
-            }
-
-            if (customer.getStatus() != CustomerStatus.ACTIVE) {
-                sendError(response, 403, "Customer account not active");
-                return;
+                if (customer != null) {
+                    if (customer.getStatus() == CustomerStatus.DELETED) {
+                        sendError(response, 403, "Customer account deleted");
+                        return;
+                    }
+                    if (customer.getStatus() == CustomerStatus.SUSPENDED) {
+                        sendError(response, 403, "Customer account suspended");
+                        return;
+                    }
+                    if (customer.getStatus() != CustomerStatus.ACTIVE) {
+                        sendError(response, 403, "Customer account not active");
+                        return;
+                    }
+                }
             }
         }
+
 
         // ---------- AUTH SUCCESS ----------
         UserDetails userDetails =
-                userDetailsService.loadUserByUsername(email);
+                userDetailsService.loadUserByUsername(user.getEmail());
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(

@@ -58,7 +58,9 @@ public class CustomerServiceImpl implements CustomerService {
                 .status(CustomerStatus.ACTIVE)
                 .build();
 
-        return mapToResponse(customerRepo.save(customer));
+        Customer savedCustomer = customerRepo.save(customer);
+
+        return mapToResponse(savedCustomer);
     }
 
     @Override
@@ -131,6 +133,11 @@ public class CustomerServiceImpl implements CustomerService {
         getActiveCustomer(customerId);
     }
 
+    @Override
+    public boolean existsByUserId(Integer userId) {
+        return customerRepo.existsByUser_UserId(userId);
+    }
+
 
     // ================= INTERNAL HELPERS =================
     private Customer getActiveCustomer(Integer customerId) {
@@ -168,6 +175,7 @@ public class CustomerServiceImpl implements CustomerService {
     private CustomerResponseDto mapToResponse(Customer customer) {
         return CustomerResponseDto.builder()
                 .customerId(customer.getCustomerId())
+                .userId(customer.getUser() != null ? customer.getUser().getUserId() : null) // <-- link to User
                 .fullName(customer.getFullName())
                 .nicNumber(customer.getNicNumber())
                 .phone(customer.getPhone())

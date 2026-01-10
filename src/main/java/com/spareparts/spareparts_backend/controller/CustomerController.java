@@ -4,8 +4,12 @@ package com.spareparts.spareparts_backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spareparts.spareparts_backend.dto.CustomerRequestDto;
 import com.spareparts.spareparts_backend.dto.CustomerResponseDto;
+import com.spareparts.spareparts_backend.entity.User;
+import com.spareparts.spareparts_backend.enums.Role;
+import com.spareparts.spareparts_backend.exception.BadRequestException;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.service.CustomerService;
+import com.spareparts.spareparts_backend.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -23,39 +27,47 @@ import java.util.List;
 @CrossOrigin
 public class CustomerController {
     private final CustomerService customerService;
+    private final UserService userService;
     private final ObjectMapper objectMapper;
 
-    // ================= CREATE CUSTOMER =================
-    // CUSTOMER self-registration
     @PostMapping(
             value = "/create",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("isAuthenticated()") // allow any logged-in user
     public ResponseEntity<CustomerResponseDto> createCustomer(
             @RequestPart("customer") String customerJson,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
     ) {
         try {
-            CustomerRequestDto dto =
-                    objectMapper.readValue(customerJson, CustomerRequestDto.class);
+            // Parse JSON string to DTO
+            CustomerRequestDto dto = objectMapper.readValue(customerJson, CustomerRequestDto.class);
 
-            CustomerResponseDto createdCustomer =
-                    customerService.createCustomer(dto, profileImage);
+            // Get current logged-in user
+            User currentUser = userService.getCurrentUserEntity();
+
+            if (customerService.existsByUserId(currentUser.getUserId())) {
+                throw new BadRequestException("Customer profile already exists");
+            }
+
+            // Create customer profile
+            CustomerResponseDto createdCustomer = customerService.createCustomer(dto, profileImage);
+
+            // Upgrade user role to CUSTOMER if not already
+            if (currentUser.getRole() != Role.CUSTOMER) {
+                currentUser.setRole(Role.CUSTOMER);
+                userService.saveUser(currentUser);
+            }
 
             return ResponseEntity.ok(createdCustomer);
 
         } catch (IOException e) {
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .build();
-
-        } catch (IllegalStateException e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .build();
+            throw new BadRequestException("Invalid JSON format for customer");
         }
     }
+
+
+
 
     // ================= UPDATE CUSTOMER PROFILE =================
     @PutMapping(
@@ -63,54 +75,64 @@ public class CustomerController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     @PreAuthorize("""
-        hasRole('ADMIN') 
-        or (hasRole('CUSTOMER') and @customerSecurity.isOwner(#customerId))
-    """)
+    hasRole('ADMIN')
+    or (hasRole('CUSTOMER') and @customerSecurity.isOwner(#customerId))
+""")
     public ResponseEntity<CustomerResponseDto> updateCustomerProfile(
             @PathVariable Integer customerId,
             @RequestPart("customer") String customerJson,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
     ) {
         try {
-            CustomerRequestDto requestDto =
-                    objectMapper.readValue(customerJson, CustomerRequestDto.class);
+            // Parse JSON to DTO
+            CustomerRequestDto requestDto;
+            try {
+                requestDto = objectMapper.readValue(customerJson, CustomerRequestDto.class);
+            } catch (IOException e) {
+                throw new BadRequestException("Invalid JSON format for customer");
+            }
+            // Update customer profile
+            CustomerResponseDto updatedCustomer = customerService.updateCustomerProfile(
+                    customerId,
+                    requestDto,
+                    profileImage
+            );
 
-            CustomerResponseDto updatedCustomer =
-                    customerService.updateCustomerProfile(
-                            customerId,
-                            requestDto,
-                            profileImage
-                    );
-
+            // Return updated customer response
             return ResponseEntity.ok(updatedCustomer);
 
-        } catch (IOException e) {
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .build();
-
         } catch (ResourceNotFoundException e) {
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .build();
-
+            throw e; // Let GlobalExceptionHandler handle NOT_FOUND
         } catch (IllegalStateException e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .build();
+            throw new BadRequestException(e.getMessage()); // Convert to clean 400 JSON
+        } catch (Exception e) {
+            throw new RuntimeException("Unexpected error: " + e.getMessage());
         }
     }
 
-    // ================= GET PROFILE =================
+
+    // ================= GET CUSTOMER PROFILE =================
     @GetMapping("/get/{customerId}")
-    @PreAuthorize("hasAnyRole('CUSTOMER','ADMIN')")
+    @PreAuthorize("""
+        hasRole('ADMIN') or (hasRole('CUSTOMER') and @customerSecurity.isOwner(#customerId))
+    """)
     public ResponseEntity<CustomerResponseDto> getCustomerProfile(
             @PathVariable Integer customerId
     ) {
-        return ResponseEntity.ok(
-                customerService.getCustomerProfile(customerId)
-        );
+        try {
+            CustomerResponseDto customer = customerService.getCustomerProfile(customerId);
+            return ResponseEntity.ok(customer);
+
+        } catch (ResourceNotFoundException e) {
+            throw e; // handled by GlobalExceptionHandler
+        } catch (IllegalStateException e) {
+            throw new BadRequestException(e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("Unexpected error: " + e.getMessage());
+        }
     }
+
+
 
     // ================= ADMIN : GET ALL =================
     @GetMapping("/getAll")
@@ -120,7 +142,6 @@ public class CustomerController {
     }
 
     // ================= DELETE FLOW =================
-    // CUSTOMER requests delete
     @PostMapping("/{customerId}/delete-request")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Void> requestDeleteCustomer(
@@ -130,7 +151,6 @@ public class CustomerController {
         return ResponseEntity.ok().build();
     }
 
-    // ADMIN approves delete
     @PostMapping("/{customerId}/delete-approve")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> approveDeleteCustomer(
@@ -140,7 +160,6 @@ public class CustomerController {
         return ResponseEntity.ok().build();
     }
 
-    // ADMIN rejects delete
     @PostMapping("/{customerId}/delete-reject")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> rejectDeleteCustomer(
