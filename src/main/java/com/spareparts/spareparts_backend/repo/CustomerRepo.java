@@ -29,4 +29,7 @@ public interface CustomerRepo extends JpaRepository<Customer, Integer> {
 
     // Exclude deleted customers
     List<Customer> findByStatusNot(CustomerStatus status);
+
+    // ownership check (USED BY @PreAuthorize)
+    boolean existsByCustomerIdAndUser_Email(Integer customerId, String email);
 }
