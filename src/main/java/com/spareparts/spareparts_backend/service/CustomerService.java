@@ -1,6 +1,7 @@
 package com.spareparts.spareparts_backend.service;
 
 import com.spareparts.spareparts_backend.dto.*;
+import com.spareparts.spareparts_backend.entity.User;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -8,7 +9,7 @@ import java.util.List;
 
 public interface CustomerService {
     // ================= CUSTOMER PROFILE =================
-    public CustomerResponseDto createCustomer(CustomerRequestDto requestDto, MultipartFile profileImage) throws IOException;
+    CustomerResponseDto createCustomer(CustomerRequestDto requestDto, MultipartFile profileImage) throws IOException;
 
 
     CustomerResponseDto updateCustomerProfile(
@@ -16,6 +17,7 @@ public interface CustomerService {
             CustomerRequestDto requestDto,
             MultipartFile profileImage
     ) throws IOException;
+
 
     CustomerResponseDto getCustomerProfile(Integer customerId);
 

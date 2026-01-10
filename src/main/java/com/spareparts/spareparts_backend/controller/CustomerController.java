@@ -1,6 +1,7 @@
 package com.spareparts.spareparts_backend.controller;
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spareparts.spareparts_backend.dto.CustomerRequestDto;
 import com.spareparts.spareparts_backend.dto.CustomerResponseDto;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
@@ -22,62 +23,83 @@ import java.util.List;
 @CrossOrigin
 public class CustomerController {
     private final CustomerService customerService;
+    private final ObjectMapper objectMapper;
 
     // ================= CREATE CUSTOMER =================
-// CUSTOMER self-registration
-    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('CUSTOMER')")  // Only logged-in users with CUSTOMER role
+    // CUSTOMER self-registration
+    @PostMapping(
+            value = "/create",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<CustomerResponseDto> createCustomer(
-            @RequestPart("data") CustomerRequestDto dto,
+            @RequestPart("customer") String customerJson,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
     ) {
         try {
-            CustomerResponseDto createdCustomer = customerService.createCustomer(dto, profileImage);
+            CustomerRequestDto dto =
+                    objectMapper.readValue(customerJson, CustomerRequestDto.class);
+
+            CustomerResponseDto createdCustomer =
+                    customerService.createCustomer(dto, profileImage);
+
             return ResponseEntity.ok(createdCustomer);
 
         } catch (IOException e) {
-            // File storage problem
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(null);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .build();
+
         } catch (IllegalStateException e) {
-            // Already exists
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(null);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .build();
         }
     }
 
-
-
     // ================= UPDATE CUSTOMER PROFILE =================
-    @PutMapping(value = "/update/{customerId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PutMapping(
+            value = "/update/{customerId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("""
+        hasRole('ADMIN') 
+        or (hasRole('CUSTOMER') and @customerSecurity.isOwner(#customerId))
+    """)
     public ResponseEntity<CustomerResponseDto> updateCustomerProfile(
             @PathVariable Integer customerId,
-            @RequestPart("data") CustomerRequestDto requestDto,
+            @RequestPart("customer") String customerJson,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
     ) {
         try {
-            // Call service method to update profile (handles optional profile image)
+            CustomerRequestDto requestDto =
+                    objectMapper.readValue(customerJson, CustomerRequestDto.class);
+
             CustomerResponseDto updatedCustomer =
-                    customerService.updateCustomerProfile(customerId, requestDto, profileImage);
+                    customerService.updateCustomerProfile(
+                            customerId,
+                            requestDto,
+                            profileImage
+                    );
 
             return ResponseEntity.ok(updatedCustomer);
 
         } catch (IOException e) {
-            // File storage or reading issue
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .build();
 
         } catch (ResourceNotFoundException e) {
-            // Customer not found
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .build();
 
         } catch (IllegalStateException e) {
-            // Customer inactive or validation failed
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .build();
         }
     }
-
-
 
     // ================= GET PROFILE =================
     @GetMapping("/get/{customerId}")

@@ -7,15 +7,16 @@ import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.CustomerStatus;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.repo.CustomerRepo;
+import com.spareparts.spareparts_backend.repo.UserRepo;
 import com.spareparts.spareparts_backend.service.CustomerService;
 import com.spareparts.spareparts_backend.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,16 +37,12 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public CustomerResponseDto createCustomer(CustomerRequestDto requestDto, MultipartFile profileImage) {
-        // Get logged-in user
-        User currentUser = userService.getUserEntityByEmail(
-                SecurityContextHolder.getContext().getAuthentication().getName()
-        );
+        User currentUser = userService.getCurrentUserEntity();
 
         if (customerRepo.existsByUser_UserId(currentUser.getUserId())) {
             throw new IllegalStateException("Customer profile already exists");
         }
 
-        // Handle profile image if provided
         String imagePath = null;
         if (profileImage != null && !profileImage.isEmpty()) {
             imagePath = storeProfileImage(profileImage, null);
@@ -68,13 +65,11 @@ public class CustomerServiceImpl implements CustomerService {
     public CustomerResponseDto updateCustomerProfile(Integer customerId, CustomerRequestDto requestDto, MultipartFile profileImage) {
         Customer customer = getActiveCustomer(customerId);
 
-        // Update text fields
         customer.setFullName(requestDto.getFullName());
         customer.setNicNumber(requestDto.getNicNumber());
         customer.setPhone(requestDto.getPhone());
         customer.setAddress(requestDto.getAddress());
 
-        // Handle profile image if provided
         if (profileImage != null && !profileImage.isEmpty()) {
             String imagePath = storeProfileImage(profileImage, customerId);
             customer.setProfileImagePath(imagePath);
@@ -82,6 +77,7 @@ public class CustomerServiceImpl implements CustomerService {
 
         return mapToResponse(customerRepo.save(customer));
     }
+
 
     // ================= GET PROFILE =================
 
@@ -139,16 +135,11 @@ public class CustomerServiceImpl implements CustomerService {
     // ================= INTERNAL HELPERS =================
     private Customer getActiveCustomer(Integer customerId) {
         Customer customer = customerRepo.findById(customerId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Customer not found with id " + customerId
-                        )
-                );
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
         if (customer.getStatus() != CustomerStatus.ACTIVE) {
             throw new IllegalStateException("Customer is not active");
         }
-
         return customer;
     }
 

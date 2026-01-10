@@ -14,6 +14,7 @@ public interface CustomerRepo extends JpaRepository<Customer, Integer> {
     // Find customer by linked user id
     Optional<Customer> findByUser_UserId(Integer userId);
 
+
     // Check if customer exists for a user
     boolean existsByUser_UserId(Integer userId);
 
