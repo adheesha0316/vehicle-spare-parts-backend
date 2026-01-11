@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/customer")
@@ -142,31 +144,60 @@ public class CustomerController {
     }
 
     // ================= DELETE FLOW =================
+
+    // Customer requests deletion
     @PostMapping("/{customerId}/delete-request")
-    @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<Void> requestDeleteCustomer(
+    @PreAuthorize("hasRole('CUSTOMER') and @customerSecurity.isOwner(#customerId)")
+    public ResponseEntity<Map<String, Object>> requestDeleteCustomer(
             @PathVariable Integer customerId
     ) {
         customerService.requestDeleteCustomer(customerId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Delete request submitted successfully",
+                "customerId", customerId
+        ));
     }
 
+    // Admin approves deletion
     @PostMapping("/{customerId}/delete-approve")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> approveDeleteCustomer(
+    public ResponseEntity<Map<String, Object>> approveDeleteCustomer(
             @PathVariable Integer customerId
     ) {
         customerService.approveDeleteCustomer(customerId);
-        return ResponseEntity.ok().build();
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Delete request approved",
+                "customerId", customerId
+        ));
     }
 
+    // Admin rejects deletion
     @PostMapping("/{customerId}/delete-reject")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> rejectDeleteCustomer(
+    public ResponseEntity<Map<String, Object>> rejectDeleteCustomer(
             @PathVariable Integer customerId,
-            @RequestParam String reason
+            @RequestBody(required = false) Map<String, String> request
     ) {
+        // Safe defaulting
+        String reason = request != null && request.get("reason") != null
+                ? request.get("reason")
+                : "Rejected by admin";
+
         customerService.rejectDeleteCustomer(customerId, reason);
-        return ResponseEntity.ok().build();
+
+        // Map.of is now SAFE because no null values
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Delete request rejected",
+                "customerId", customerId,
+                "reason", reason
+        ));
     }
+
+
+
+
 }

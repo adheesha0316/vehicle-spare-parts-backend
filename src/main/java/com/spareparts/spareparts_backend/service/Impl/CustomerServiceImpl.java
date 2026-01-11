@@ -101,6 +101,11 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public void requestDeleteCustomer(Integer customerId) {
         Customer customer = getActiveCustomer(customerId);
+
+        if (customer.getStatus() == CustomerStatus.DELETE_REQUESTED) {
+            throw new IllegalStateException("Delete request already submitted");
+        }
+
         customer.setStatus(CustomerStatus.DELETE_REQUESTED);
         customerRepo.save(customer);
     }
