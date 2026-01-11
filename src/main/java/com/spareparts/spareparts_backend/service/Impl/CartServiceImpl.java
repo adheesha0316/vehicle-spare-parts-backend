@@ -1,0 +1,154 @@
+package com.spareparts.spareparts_backend.service.Impl;
+
+import com.spareparts.spareparts_backend.dto.CartItemDto;
+import com.spareparts.spareparts_backend.dto.CartRequestDto;
+import com.spareparts.spareparts_backend.dto.CartResponseDto;
+import com.spareparts.spareparts_backend.entity.Cart;
+import com.spareparts.spareparts_backend.entity.CartItem;
+import com.spareparts.spareparts_backend.entity.Customer;
+import com.spareparts.spareparts_backend.entity.SpareItem;
+import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
+import com.spareparts.spareparts_backend.repo.CartItemRepo;
+import com.spareparts.spareparts_backend.repo.CartRepo;
+import com.spareparts.spareparts_backend.repo.CustomerRepo;
+import com.spareparts.spareparts_backend.repo.SpareItemRepo;
+import com.spareparts.spareparts_backend.service.CartService;
+import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class CartServiceImpl implements CartService {
+    private final CartRepo cartRepo;
+    private final CartItemRepo cartItemRepo;
+    private final CustomerRepo customerRepo;
+    private final SpareItemRepo spareItemRepo;
+
+
+    // ================= ADD TO CART =================
+
+    @Override
+    public void addToCart(Integer customerId, CartRequestDto requestDto) {
+        Customer customer = customerRepo.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+
+        Cart cart = cartRepo.findByCustomer(customer)
+                .orElseGet(() -> cartRepo.save(
+                        Cart.builder()
+                                .customer(customer)
+                                .items(new ArrayList<>())
+                                .build()
+                ));
+
+        SpareItem spareItem = spareItemRepo.findById(requestDto.getSpareItemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Spare item not found"));
+
+        CartItem cartItem = cartItemRepo
+                .findByCartAndSpareItem(cart, spareItem)
+                .orElse(null);
+
+        if (cartItem != null) {
+            cartItem.setQuantity(cartItem.getQuantity() + requestDto.getQuantity());
+        } else {
+            cartItem = CartItem.builder()
+                    .cart(cart)
+                    .spareItem(spareItem)
+                    .quantity(requestDto.getQuantity())
+                    .build();
+            cartItemRepo.save(cartItem);
+        }
+    }
+
+    // ================= UPDATE CART ITEM =================
+
+    @Override
+    public void updateCartItem(Integer customerId, Integer cartItemId, int quantity) {
+        CartItem cartItem = cartItemRepo.findById(cartItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found"));
+
+        validateOwnership(customerId, cartItem);
+
+        if (quantity <= 0) {
+            cartItemRepo.delete(cartItem);
+        } else {
+            cartItem.setQuantity(quantity);
+        }
+    }
+
+    // ================= REMOVE FROM CART =================
+
+    @Override
+    public void removeFromCart(Integer customerId, Integer cartItemId) {
+        CartItem cartItem = cartItemRepo.findById(cartItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found"));
+
+        validateOwnership(customerId, cartItem);
+        cartItemRepo.delete(cartItem);
+    }
+
+    // ================= VIEW CART =================
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CartResponseDto> viewCart(Integer customerId) {
+        Cart cart = cartRepo.findByCustomerId(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
+
+        List<CartItemDto> items = cart.getItems().stream()
+                .map(item -> {
+                    BigDecimal unitPrice = BigDecimal.valueOf(item.getSpareItem().getPrice());
+                    BigDecimal subTotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
+
+                    return CartItemDto.builder()
+                            .cartItemId(item.getId())
+                            .spareItemId(item.getSpareItem().getSpareItemId())
+                            .spareItemName(item.getSpareItem().getName())
+                            .quantity(item.getQuantity())
+                            .unitPrice(unitPrice)
+                            .subTotal(subTotal)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return List.of(
+                CartResponseDto.builder()
+                        .cartId(cart.getCartId())
+                        .items(items)
+                        .build()
+        );
+    }
+
+    // ================= CLEAR CART =================
+
+    @Override
+    public void clearCart(Integer customerId) {
+        Cart cart = cartRepo.findByCustomerId(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
+
+        cartItemRepo.deleteByCart(cart);
+    }
+
+    // ================= CHECK EMPTY =================
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isCartEmpty(Integer customerId) {
+        return cartRepo.findByCustomerId(customerId)
+                .map(cart -> cart.getItems().isEmpty())
+                .orElse(true);
+    }
+
+    // ================= SECURITY =================
+    private void validateOwnership(Integer customerId, CartItem cartItem) {
+        if (!cartItem.getCart().getCustomer().getCustomerId().equals(customerId)) {
+            throw new SecurityException("Unauthorized cart access");
+        }
+    }
+}

@@ -13,9 +13,10 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class CartItemDto {
-    private Integer orderId;
-    private BigDecimal totalAmount;
-    private String paymentMethod;
-    private String status;
-    private List<OrderStatusUpdateDto> statusUpdates;
+    private Integer cartItemId;
+    private Integer spareItemId;
+    private String spareItemName;
+    private int quantity;
+    private BigDecimal unitPrice;
+    private BigDecimal subTotal;
 }
