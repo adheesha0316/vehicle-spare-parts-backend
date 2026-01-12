@@ -2,6 +2,7 @@ package com.spareparts.spareparts_backend.service;
 
 import com.spareparts.spareparts_backend.dto.CartRequestDto;
 import com.spareparts.spareparts_backend.dto.CartResponseDto;
+import com.spareparts.spareparts_backend.dto.UpdateCartItemDto;
 
 import java.util.List;
 
@@ -14,7 +15,7 @@ public interface CartService {
     void updateCartItem(
             Integer customerId,
             Integer cartItemId,
-            int quantity
+            UpdateCartItemDto dto
     );
 
     void removeFromCart(

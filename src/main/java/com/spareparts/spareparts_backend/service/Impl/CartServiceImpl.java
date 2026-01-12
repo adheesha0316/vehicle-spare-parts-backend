@@ -3,6 +3,7 @@ package com.spareparts.spareparts_backend.service.Impl;
 import com.spareparts.spareparts_backend.dto.CartItemDto;
 import com.spareparts.spareparts_backend.dto.CartRequestDto;
 import com.spareparts.spareparts_backend.dto.CartResponseDto;
+import com.spareparts.spareparts_backend.dto.UpdateCartItemDto;
 import com.spareparts.spareparts_backend.entity.Cart;
 import com.spareparts.spareparts_backend.entity.CartItem;
 import com.spareparts.spareparts_backend.entity.Customer;
@@ -86,16 +87,24 @@ public class CartServiceImpl implements CartService {
     // ================= UPDATE CART ITEM =================
 
     @Override
-    public void updateCartItem(Integer customerId, Integer cartItemId, int quantity) {
+    public void updateCartItem(Integer customerId, Integer cartItemId, UpdateCartItemDto dto) {
         CartItem cartItem = cartItemRepo.findById(cartItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item not found"));
 
         validateOwnership(customerId, cartItem);
 
-        if (quantity <= 0) {
+        // Update spare item if provided
+        if (dto.getSpareItemId() != null && !dto.getSpareItemId().equals(cartItem.getSpareItem().getSpareItemId())) {
+            SpareItem newSpareItem = spareItemRepo.findById(dto.getSpareItemId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Spare item not found"));
+            cartItem.setSpareItem(newSpareItem);
+        }
+
+        // Update quantity
+        if (dto.getQuantity() <= 0) {
             cartItemRepo.delete(cartItem);
         } else {
-            cartItem.setQuantity(quantity);
+            cartItem.setQuantity(dto.getQuantity());
         }
     }
 
@@ -115,7 +124,7 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional(readOnly = true)
     public List<CartResponseDto> viewCart(Integer customerId) {
-        Cart cart = cartRepo.findByCustomerId(customerId)
+        Cart cart = cartRepo.findByCustomerCustomerId(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
 
         List<CartItemDto> items = cart.getItems().stream()
@@ -146,7 +155,7 @@ public class CartServiceImpl implements CartService {
 
     @Override
     public void clearCart(Integer customerId) {
-        Cart cart = cartRepo.findByCustomerId(customerId)
+        Cart cart = cartRepo.findByCustomerCustomerId(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
 
         cartItemRepo.deleteByCart(cart);
@@ -157,7 +166,7 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional(readOnly = true)
     public boolean isCartEmpty(Integer customerId) {
-        return cartRepo.findByCustomerId(customerId)
+        return cartRepo.findByCustomerCustomerId(customerId)
                 .map(cart -> cart.getItems().isEmpty())
                 .orElse(true);
     }

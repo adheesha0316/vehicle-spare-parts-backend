@@ -12,8 +12,10 @@ public interface CartRepo extends JpaRepository<Cart, Integer> {
 
     Optional<Cart> findByCustomer(Customer customer);
 
-    Optional<Cart> findByCustomerId(Integer customerId);
+    // Traverse the correct field in Customer
+    Optional<Cart> findByCustomerCustomerId(Integer customerId);
 
-    boolean existsByCustomerId(Integer customerId);
+    boolean existsByCustomerCustomerId(Integer customerId);
+
 
 }

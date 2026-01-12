@@ -2,6 +2,7 @@ package com.spareparts.spareparts_backend.controller;
 
 import com.spareparts.spareparts_backend.dto.CartRequestDto;
 import com.spareparts.spareparts_backend.dto.CartResponseDto;
+import com.spareparts.spareparts_backend.dto.UpdateCartItemDto;
 import com.spareparts.spareparts_backend.service.CartService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -38,9 +39,9 @@ public class CartController {
     public ResponseEntity<Map<String, Object>> updateCartItem(
             @PathVariable Integer customerId,
             @PathVariable Integer cartItemId,
-            @RequestParam int quantity
+            @RequestBody UpdateCartItemDto dto
     ) {
-        cartService.updateCartItem(customerId, cartItemId, quantity);
+        cartService.updateCartItem(customerId, cartItemId, dto);
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Cart item updated"
