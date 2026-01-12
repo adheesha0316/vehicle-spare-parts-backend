@@ -7,6 +7,7 @@ import com.spareparts.spareparts_backend.entity.Cart;
 import com.spareparts.spareparts_backend.entity.CartItem;
 import com.spareparts.spareparts_backend.entity.Customer;
 import com.spareparts.spareparts_backend.entity.SpareItem;
+import com.spareparts.spareparts_backend.enums.CustomerStatus;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.repo.CartItemRepo;
 import com.spareparts.spareparts_backend.repo.CartRepo;
@@ -35,10 +36,21 @@ public class CartServiceImpl implements CartService {
     // ================= ADD TO CART =================
 
     @Override
+    @Transactional
     public void addToCart(Integer customerId, CartRequestDto requestDto) {
+        // ------------------- VALIDATE CUSTOMER -------------------
         Customer customer = customerRepo.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "You don't have a customer account. Please create your customer profile first."
+                        )
+                );
 
+        if (customer.getStatus() != CustomerStatus.ACTIVE) {
+            throw new IllegalStateException("Customer account is not active");
+        }
+
+        // ------------------- GET OR CREATE CART -------------------
         Cart cart = cartRepo.findByCustomer(customer)
                 .orElseGet(() -> cartRepo.save(
                         Cart.builder()
@@ -47,22 +59,27 @@ public class CartServiceImpl implements CartService {
                                 .build()
                 ));
 
+        // ------------------- VALIDATE SPARE ITEM -------------------
         SpareItem spareItem = spareItemRepo.findById(requestDto.getSpareItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Spare item not found"));
 
-        CartItem cartItem = cartItemRepo
-                .findByCartAndSpareItem(cart, spareItem)
+        // ------------------- FIND EXISTING CART ITEM -------------------
+        CartItem cartItem = cartItemRepo.findByCartAndSpareItem(cart, spareItem)
                 .orElse(null);
 
+        // ------------------- ADD OR UPDATE -------------------
         if (cartItem != null) {
+            // Item already in cart → increase quantity
             cartItem.setQuantity(cartItem.getQuantity() + requestDto.getQuantity());
         } else {
-            cartItem = CartItem.builder()
-                    .cart(cart)
-                    .spareItem(spareItem)
-                    .quantity(requestDto.getQuantity())
-                    .build();
-            cartItemRepo.save(cartItem);
+            // New cart item → create
+            cartItemRepo.save(
+                    CartItem.builder()
+                            .cart(cart)
+                            .spareItem(spareItem)
+                            .quantity(requestDto.getQuantity())
+                            .build()
+            );
         }
     }
 
