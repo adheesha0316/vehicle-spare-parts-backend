@@ -39,6 +39,8 @@ public class SecurityConfig {
                         // Customer endpoints
                         .requestMatchers("/api/v1/customer/create").authenticated()
                         .requestMatchers("/api/v1/customer/**").hasAnyRole("CUSTOMER","ADMIN")
+                        // Cart endpoints
+                        .requestMatchers("/api/v1/cart/**").hasRole("CUSTOMER")
                         // User endpoints
                         .requestMatchers("/api/v1/user/**").hasAnyRole("USER","ADMIN")
                         // Any other request requires authentication
