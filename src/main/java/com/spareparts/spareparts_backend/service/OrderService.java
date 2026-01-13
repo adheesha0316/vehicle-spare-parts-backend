@@ -16,7 +16,8 @@ public interface OrderService {
 
     void cancelOrder(
             Integer customerId,
-            Integer orderId
+            Integer orderId,
+            String reason
     );
 
     // ================= ADMIN / PARTNER =================

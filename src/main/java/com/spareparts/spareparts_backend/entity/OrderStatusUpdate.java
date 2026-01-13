@@ -24,5 +24,7 @@ public class OrderStatusUpdate {
     private Order order;
 
     private String status; // e.g., "SHIPPED", "DELIVERED"
+
+    private String reason;
     private LocalDateTime timestamp;
 }

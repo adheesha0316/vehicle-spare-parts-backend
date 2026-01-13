@@ -11,6 +11,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -47,18 +48,11 @@ public class Order {
     private LocalDateTime updatedAt;
 
     // ================= ORDER ITEMS =================
-    @OneToMany(
-            mappedBy = "order",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private List<OrderItem> items;
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderItem> items = new ArrayList<>();
 
-    // ================= STATUS HISTORY =================
-    @OneToMany(
-            mappedBy = "order",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private List<OrderStatusUpdate> statusUpdates;
+    // ================= STATUS UPDATES =================
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<OrderStatusUpdate> statusUpdates = new ArrayList<>();
 }
