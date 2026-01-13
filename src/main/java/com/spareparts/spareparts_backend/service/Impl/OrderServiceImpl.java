@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -53,8 +54,10 @@ public class OrderServiceImpl implements OrderService {
         Order order = Order.builder()
                 .customer(customer)
                 .status(OrderStatus.PENDING)
-                .createdAt(LocalDateTime.now())
+                .totalAmount(BigDecimal.ZERO)
+                .statusUpdates(new ArrayList<>())
                 .build();
+
 
 
         order = orderRepo.save(order);
@@ -64,25 +67,23 @@ public class OrderServiceImpl implements OrderService {
 
         for (CartItem cartItem : cart.getItems()) {
             BigDecimal unitPrice = BigDecimal.valueOf(cartItem.getSpareItem().getPrice());
-            BigDecimal itemTotal =
-                    unitPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity()));
+            BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity()));
 
             totalAmount = totalAmount.add(itemTotal);
 
-            OrderItem orderItem = OrderItem.builder()
-                    .order(order)
-                    .spareItem(cartItem.getSpareItem())
-                    .quantity(cartItem.getQuantity())
-                    .unitPrice(unitPrice)
-                    .totalPrice(itemTotal)
-                    .build();
-
-            orderItemRepo.save(orderItem);
+            orderItemRepo.save(
+                    OrderItem.builder()
+                            .order(order)
+                            .spareItem(cartItem.getSpareItem())
+                            .quantity(cartItem.getQuantity())
+                            .unitPrice(unitPrice)
+                            .totalPrice(itemTotal)
+                            .build()
+            );
         }
 
         order.setTotalAmount(totalAmount);
 
-        // ---------------- STATUS HISTORY ----------------
         order.getStatusUpdates().add(
                 OrderStatusUpdate.builder()
                         .order(order)
@@ -91,8 +92,8 @@ public class OrderServiceImpl implements OrderService {
                         .build()
         );
 
-        // ---------------- CLEAR CART ----------------
         cart.getItems().clear();
+        cartRepo.save(cart);
 
         return mapToResponse(order);
     }
