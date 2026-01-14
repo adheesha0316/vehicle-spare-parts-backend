@@ -2,6 +2,7 @@ package com.spareparts.spareparts_backend.repo;
 
 import com.spareparts.spareparts_backend.entity.SpareItem;
 import com.spareparts.spareparts_backend.enums.SpareItemCategory;
+import com.spareparts.spareparts_backend.enums.OwnershipStatus;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,9 +26,6 @@ public interface SpareItemRepo extends JpaRepository<SpareItem, Integer> {
 
     // ================= STATUS BASED =================
 
-    // Used for:
-    // - Customer view (APPROVED)
-    // - Admin pending approval (PENDING)
     List<SpareItem> findByStatus(SpareItemStatus status);
 
     Optional<SpareItem> findBySpareItemIdAndStatus(
@@ -69,10 +67,19 @@ public interface SpareItemRepo extends JpaRepository<SpareItem, Integer> {
             SpareItemStatus status
     );
 
-    // ================= MANAGER =================
+    // ================= OWNERSHIP =================
 
-    List<SpareItem> findByManager_ManagerIdAndStatusNot(
-            Integer managerId,
+    // All PLATFORM_OWNER items
+    List<SpareItem> findByOwnershipAndStatusNot(
+            OwnershipStatus ownership,
             SpareItemStatus status
     );
+
+    // All PARTNER items (by partner)
+    List<SpareItem> findByOwnershipAndPartner_PartnerIdAndStatusNot(
+            OwnershipStatus ownership,
+            Integer partnerId,
+            SpareItemStatus status
+    );
+
 }

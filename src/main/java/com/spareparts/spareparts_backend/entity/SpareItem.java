@@ -1,6 +1,7 @@
 package com.spareparts.spareparts_backend.entity;
 
 import com.spareparts.spareparts_backend.enums.SpareItemCategory;
+import com.spareparts.spareparts_backend.enums.OwnershipStatus;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
 import jakarta.persistence.*;
@@ -45,6 +46,7 @@ public class SpareItem {
     private Integer quantity;
 
     // ================= IMAGES =================
+    @Builder.Default
     @ElementCollection
     @CollectionTable(
             name = "spare_item_images",
@@ -55,44 +57,34 @@ public class SpareItem {
 
     // ================= STATUS =================
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private SpareItemStatus status;
-    // PENDING, APPROVED, REJECTED, UPDATE_PENDING, DELETED
 
     @Enumerated(EnumType.STRING)
     private StockStatus stockStatus;
-    // IN_STOCK, OUT_OF_STOCK, LOW_STOCK
 
     // ================= OWNERSHIP =================
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OwnershipStatus ownership;
 
-    // Created by MANAGER (optional)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_id")
-    private Manager manager;
-
-    // Created by PARTNER (optional)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "partner_id")
-    private Partner partner;
+    private Partner partner; // only if ownership == PARTNER
 
-    // Approved / Rejected by ADMIN or MANAGER
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by_user_id")
     private User approvedBy;
 
-    // Reason if rejected
     @Column(length = 500)
     private String rejectionReason;
 
-    // Approval / rejection time
     private LocalDateTime approvedAt;
 
-    // ================= TIMESTAMPS =================
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // ================= PENDING UPDATE FIELDS =================
-    // Used when update requires approval
-
+    // ================= PENDING UPDATE =================
     private String pendingName;
     private String pendingBrand;
     private String pendingDescription;
@@ -102,6 +94,7 @@ public class SpareItem {
     @Enumerated(EnumType.STRING)
     private SpareItemCategory pendingCategory;
 
+    @Builder.Default
     @ElementCollection
     @CollectionTable(
             name = "spare_item_pending_images",

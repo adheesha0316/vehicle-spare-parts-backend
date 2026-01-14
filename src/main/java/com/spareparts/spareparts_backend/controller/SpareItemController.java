@@ -25,20 +25,37 @@ public class SpareItemController {
 
 
     // ---------------- CREATE ----------------
-    @PostMapping("/create")
-    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
-    public ResponseEntity<SpareItemResponseDto> createSpareItem(
-            @RequestParam("managerId") Integer managerId,
+    // PLATFORM OWNER item (ADMIN / MANAGER)
+    @PostMapping("/create/platform")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    public ResponseEntity<SpareItemResponseDto> createPlatformSpareItem(
             @RequestPart("spareItem") String spareItemJson,
             @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) throws Exception {
 
-        // Convert JSON string to DTO
-        SpareItemRequestDto requestDto = mapper.readValue(spareItemJson, SpareItemRequestDto.class);
+        SpareItemRequestDto requestDto =
+                mapper.readValue(spareItemJson, SpareItemRequestDto.class);
 
-        SpareItemResponseDto response = spareItemService.createSpareItem(managerId, requestDto, images);
+        return ResponseEntity.ok(
+                spareItemService.createPlatformSpareItem(requestDto, images)
+        );
+    }
 
-        return ResponseEntity.ok(response);
+    // PARTNER item
+    @PostMapping("/create/partner/{partnerId}")
+    @PreAuthorize("hasRole('PARTNER')")
+    public ResponseEntity<SpareItemResponseDto> createPartnerSpareItem(
+            @PathVariable Integer partnerId,
+            @RequestPart("spareItem") String spareItemJson,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
+    ) throws Exception {
+
+        SpareItemRequestDto requestDto =
+                mapper.readValue(spareItemJson, SpareItemRequestDto.class);
+
+        return ResponseEntity.ok(
+                spareItemService.createPartnerSpareItem(partnerId, requestDto, images)
+        );
     }
 
     // ---------------- UPDATE BY MANAGER ----------------
@@ -127,12 +144,24 @@ public class SpareItemController {
         return ResponseEntity.ok(response);
     }
 
-    // ---------------- GET BY MANAGER ----------------
-    @GetMapping("/manager/{managerId}")
-    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
-    public ResponseEntity<List<SpareItemResponseDto>> getByManager(@PathVariable Integer managerId) {
-        List<SpareItemResponseDto> response = spareItemService.getSpareItemsByManager(managerId);
-        return ResponseEntity.ok(response);
+    // ================= OWNERSHIP =================
+
+    @GetMapping("/platform")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<List<SpareItemResponseDto>> getPlatformItems() {
+        return ResponseEntity.ok(
+                spareItemService.findPlatformItems()
+        );
+    }
+
+    @GetMapping("/partner/{partnerId}")
+    @PreAuthorize("hasAnyRole('ADMIN','PARTNER')")
+    public ResponseEntity<List<SpareItemResponseDto>> getPartnerItems(
+            @PathVariable Integer partnerId
+    ) {
+        return ResponseEntity.ok(
+                spareItemService.findPartnerItems(partnerId)
+        );
     }
 
     // ---------------- GET CATEGORY ----------------

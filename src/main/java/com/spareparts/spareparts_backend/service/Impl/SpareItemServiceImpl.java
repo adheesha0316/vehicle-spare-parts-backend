@@ -3,14 +3,15 @@ package com.spareparts.spareparts_backend.service.Impl;
 import com.spareparts.spareparts_backend.dto.CategoryResponseDto;
 import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
 import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
-import com.spareparts.spareparts_backend.entity.Manager;
+import com.spareparts.spareparts_backend.entity.Partner;
 import com.spareparts.spareparts_backend.entity.SpareItem;
 import com.spareparts.spareparts_backend.entity.User;
+import com.spareparts.spareparts_backend.enums.OwnershipStatus;
 import com.spareparts.spareparts_backend.enums.SpareItemCategory;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
-import com.spareparts.spareparts_backend.repo.ManagerRepo;
+import com.spareparts.spareparts_backend.repo.PartnerRepo;
 import com.spareparts.spareparts_backend.repo.SpareItemRepo;
 import com.spareparts.spareparts_backend.repo.UserRepo;
 import com.spareparts.spareparts_backend.service.SpareItemService;
@@ -34,23 +35,16 @@ import java.util.*;
 public class SpareItemServiceImpl implements SpareItemService {
 
     private final SpareItemRepo spareItemRepo;
-    private final ManagerRepo managerRepo;
+    private final PartnerRepo partnerRepo;
     private final UserRepo userRepo;
 
     private static final String UPLOAD_DIR = "uploads/spareItem/";
 
+
     // ================= CREATE =================
-
     @Override
-    public SpareItemResponseDto createSpareItem(Integer managerId, SpareItemRequestDto requestDto, List<MultipartFile> images) {
-        Manager manager = managerRepo.findById(managerId)
-                .orElseThrow(() -> new RuntimeException("Manager not found"));
-
-        StockStatus stockStatus = parseStockStatus(requestDto.getStockStatus());
-
-        List<String> imagePaths = (images != null && !images.isEmpty())
-                ? storeImages(images)
-                : new ArrayList<>();
+    public SpareItemResponseDto createPlatformSpareItem(SpareItemRequestDto requestDto, List<MultipartFile> images) {
+        List<String> imagePaths = (images != null && !images.isEmpty()) ? storeImages(images) : new ArrayList<>();
 
         SpareItem spareItem = SpareItem.builder()
                 .name(requestDto.getName())
@@ -59,10 +53,37 @@ public class SpareItemServiceImpl implements SpareItemService {
                 .category(requestDto.getCategory())
                 .price(requestDto.getPrice())
                 .quantity(requestDto.getQuantity())
-                .stockStatus(stockStatus)
+                .stockStatus(parseStockStatus(requestDto.getStockStatus()))
                 .status(SpareItemStatus.APPROVED)
+                .ownership(OwnershipStatus.PLATFORM_OWNER)
                 .images(imagePaths)
-                .manager(manager)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        spareItemRepo.save(spareItem);
+        return mapToResponseDto(spareItem);
+    }
+
+    @Override
+    public SpareItemResponseDto createPartnerSpareItem(Integer partnerId, SpareItemRequestDto requestDto, List<MultipartFile> images) {
+        Partner partner = partnerRepo.findById(partnerId)
+                .orElseThrow(() -> new RuntimeException("Partner not found"));
+
+        List<String> imagePaths = (images != null && !images.isEmpty()) ? storeImages(images) : new ArrayList<>();
+
+        SpareItem spareItem = SpareItem.builder()
+                .name(requestDto.getName())
+                .brand(requestDto.getBrand())
+                .description(requestDto.getDescription())
+                .category(requestDto.getCategory())
+                .price(requestDto.getPrice())
+                .quantity(requestDto.getQuantity())
+                .stockStatus(parseStockStatus(requestDto.getStockStatus()))
+                .status(SpareItemStatus.PENDING)
+                .ownership(OwnershipStatus.PARTNER)
+                .partner(partner)
+                .images(imagePaths)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -72,7 +93,6 @@ public class SpareItemServiceImpl implements SpareItemService {
     }
 
     // ================= UPDATE (MANAGER) =================
-
     @Override
     public SpareItemResponseDto updateSpareItemByManager(Integer spareItemId, SpareItemRequestDto requestDto, List<MultipartFile> images) {
         SpareItem spareItem = getActiveSpareItem(spareItemId);
@@ -195,15 +215,6 @@ public class SpareItemServiceImpl implements SpareItemService {
     }
 
     @Override
-    public List<SpareItemResponseDto> getSpareItemsByManager(Integer managerId) {
-        return spareItemRepo
-                .findByManager_ManagerIdAndStatusNot(managerId, SpareItemStatus.DELETED)
-                .stream()
-                .map(this::mapToResponseDto)
-                .toList();
-    }
-
-    @Override
     public List<CategoryResponseDto> getAllCategories() {
         return Arrays.stream(SpareItemCategory.values())
                 .map(category -> new CategoryResponseDto(
@@ -211,6 +222,31 @@ public class SpareItemServiceImpl implements SpareItemService {
                         category.getLabelEn(),  // English label
                         category.getLabelSi()   // Sinhalese label
                 ))
+                .toList();
+    }
+
+    @Override
+    public List<SpareItemResponseDto> findPlatformItems() {
+        return spareItemRepo
+                .findByOwnershipAndStatusNot(
+                        OwnershipStatus.PLATFORM_OWNER,
+                        SpareItemStatus.DELETED
+                )
+                .stream()
+                .map(this::mapToResponseDto)
+                .toList();
+    }
+
+    @Override
+    public List<SpareItemResponseDto> findPartnerItems(Integer partnerId) {
+        return spareItemRepo
+                .findByOwnershipAndPartner_PartnerIdAndStatusNot(
+                        OwnershipStatus.PARTNER,
+                        partnerId,
+                        SpareItemStatus.DELETED
+                )
+                .stream()
+                .map(this::mapToResponseDto)
                 .toList();
     }
 
@@ -278,9 +314,10 @@ public class SpareItemServiceImpl implements SpareItemService {
                 item.getStockStatus() != null ? item.getStockStatus().name() : null,
                 item.getImages(),
                 item.getStatus(),
+                item.getOwnership(),
+                item.getPartner() != null ? item.getPartner().getPartnerId() : null,
                 item.getCreatedAt(),
                 item.getUpdatedAt(),
-                item.getManager() != null ? item.getManager().getManagerId() : null,
                 item.getApprovedBy() != null ? item.getApprovedBy().getUserId() : null
         );
     }

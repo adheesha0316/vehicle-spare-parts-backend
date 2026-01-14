@@ -1157,13 +1157,15 @@ public class PartnerServiceImpl implements PartnerService {
                 item.getDescription(),
                 item.getCategory().name(),
                 item.getPrice(),
-                item.getStockStatus().name(),
+                item.getStockStatus() != null ? item.getStockStatus().name() : null,
                 item.getImages(),
                 item.getStatus(),
+                item.getOwnership(),
+                item.getPartner() != null ? item.getPartner().getPartnerId() : null,
                 item.getCreatedAt(),
                 item.getUpdatedAt(),
-                item.getManager() != null ? item.getManager().getManagerId() : null,
                 item.getApprovedBy() != null ? item.getApprovedBy().getUserId() : null
         );
     }
+
 }

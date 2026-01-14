@@ -21,13 +21,10 @@ public class SpareItemRequestDto {
     private Double price;
     private Integer quantity;
 
-    // e.g., "IN_STOCK", "OUT_OF_STOCK"
+    // IN_STOCK, OUT_OF_STOCK, LOW_STOCK
     private String stockStatus;
 
-    // Uploaded images (1-5 images)
-    private List<MultipartFile> images;
-
-    // Optional: existing image paths (for update scenarios)
-    private List<String> imagePaths;
+    // Used for update scenarios
+    private List<String> existingImagePaths;
 }
 

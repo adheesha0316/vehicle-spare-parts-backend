@@ -10,7 +10,11 @@ import java.util.List;
 public interface SpareItemService {
 
     // ---------------- CREATE ----------------
-    SpareItemResponseDto createSpareItem(Integer managerId, SpareItemRequestDto requestDto, List<MultipartFile> images);
+    // Create platform item (admin/manager)
+    SpareItemResponseDto createPlatformSpareItem(SpareItemRequestDto requestDto, List<MultipartFile> images);
+
+    // Create partner item
+    SpareItemResponseDto createPartnerSpareItem(Integer partnerId, SpareItemRequestDto requestDto, List<MultipartFile> images);
 
     // ---------------- UPDATE ----------------
     SpareItemResponseDto updateSpareItemByManager(Integer spareItemId, SpareItemRequestDto requestDto, List<MultipartFile> images);
@@ -28,7 +32,9 @@ public interface SpareItemService {
     List<SpareItemResponseDto> getAllApprovedSpareItems(); // For customers
     List<SpareItemResponseDto> getApprovedByCategory(String categoryKey);
     List<SpareItemResponseDto> getAllSpareItemsForAdmin(); // For admin
-    List<SpareItemResponseDto> getSpareItemsByManager(Integer managerId); // For manager
     List<CategoryResponseDto> getAllCategories();
 
+    // ---------------- OWNERSHIP ----------------
+    List<SpareItemResponseDto> findPlatformItems();          // All items owned by PLATFORM_OWNER
+    List<SpareItemResponseDto> findPartnerItems(Integer partnerId);  // All items owned by a speci
 }
