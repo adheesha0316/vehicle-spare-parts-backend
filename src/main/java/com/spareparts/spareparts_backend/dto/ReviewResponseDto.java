@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 public class ReviewResponseDto {
     private Integer reviewId;
     private Integer customerId;
-    private Integer serviceId;       // optional: service or partner/product being reviewed
+    private Integer spareItemId;       // optional: service or partner/product being reviewed
     private String reviewText;
     private int rating;              // 1 to 5 stars
     private LocalDateTime createdAt;
