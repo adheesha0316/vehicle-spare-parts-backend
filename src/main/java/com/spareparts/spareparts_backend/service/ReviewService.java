@@ -11,6 +11,13 @@ public interface ReviewService {
             ReviewRequestDto requestDto
     );
 
+    ReviewResponseDto updateReview(
+            Integer customerId,
+            Integer reviewId,
+            ReviewRequestDto requestDto
+    );
+
+
     List<ReviewResponseDto> getReviewsBySpareItem(Integer spareItemId);
 
     List<ReviewResponseDto> getCustomerReviews(Integer customerId);
