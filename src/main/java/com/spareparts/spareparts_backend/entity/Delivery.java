@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 
 import java.time.LocalDateTime;
 
@@ -47,4 +49,23 @@ public class Delivery {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    // ================= AUTO-GENERATE TRACKING =================
+    @PrePersist
+    public void prePersist() {
+        if (this.trackingNumber == null && TrackingNumberInjector.generator != null) {
+            this.trackingNumber = TrackingNumberInjector.generator.generate(this.deliveryId);
+        }
+    }
+
+    // ================= STATIC HELPER FOR AUTOWIRED GENERATOR =================
+    @Component
+    public static class TrackingNumberInjector {
+        private static TrackingNumberGenerator generator;
+
+        @Autowired
+        public TrackingNumberInjector(TrackingNumberGenerator generator) {
+            TrackingNumberInjector.generator = generator;
+        }
+    }
 }
