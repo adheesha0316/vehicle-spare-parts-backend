@@ -3,6 +3,7 @@ package com.spareparts.spareparts_backend.service;
 import com.spareparts.spareparts_backend.dto.CategoryResponseDto;
 import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
 import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
+import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -31,7 +32,7 @@ public interface SpareItemService {
     SpareItemResponseDto getSpareItemById(Integer spareItemId);
     List<SpareItemResponseDto> getAllApprovedSpareItems(); // For customers
     List<SpareItemResponseDto> getApprovedByCategory(String categoryKey);
-    List<SpareItemResponseDto> getAllSpareItemsForAdmin(); // For admin
+    Page<SpareItemResponseDto> getAllSpareItemsForAdmin(int page, int size); // For admin
     List<CategoryResponseDto> getAllCategories();
 
     //--------------- SEARCH ---------------

@@ -1,7 +1,7 @@
 package com.spareparts.spareparts_backend.enums;
 
 public enum PartnerStatus {
-    PENDING,
+    PENDING_APPROVAL,
     APPROVED,
     REJECTED,
     SUSPENDED,

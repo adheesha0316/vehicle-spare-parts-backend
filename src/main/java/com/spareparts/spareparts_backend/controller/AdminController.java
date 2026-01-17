@@ -12,6 +12,7 @@ import com.spareparts.spareparts_backend.security.CustomUserDetails;
 import com.spareparts.spareparts_backend.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -46,8 +47,11 @@ public class AdminController {
     // ---------------- GET ALL USERS (ADMIN) ---------------- //
     @GetMapping("/user/all")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<UserDtoReturn>> getAllUsers() {
-        List<UserDtoReturn> users = userService.getAllUsers();
+    public ResponseEntity<Page<UserDtoReturn>> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "0") int size
+    ) {
+        Page<UserDtoReturn> users = userService.getAllUsers(page, size);
         return ResponseEntity.ok(users);
     }
 
@@ -595,8 +599,11 @@ public class AdminController {
     // ---------------- GET ALL FOR ADMIN ----------------
     @GetMapping("/spare-item/all")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<SpareItemResponseDto>> getAllForAdmin() {
-        List<SpareItemResponseDto> response = spareItemService.getAllSpareItemsForAdmin();
+    public ResponseEntity<Page<SpareItemResponseDto>> getAllForAdmin(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "0") int size
+    ) {
+        Page<SpareItemResponseDto> response = spareItemService.getAllSpareItemsForAdmin(page, size);
         return ResponseEntity.ok(response);
     }
 

@@ -98,7 +98,7 @@ public class PartnerServiceImpl implements PartnerService {
         // ===== Map DTO =====
         Partner partner = modelMapper.map(requestDto, Partner.class);
         partner.setUser(user);
-        partner.setStatus(PartnerStatus.PENDING);
+        partner.setStatus(PartnerStatus.PENDING_APPROVAL);
         partner.setCreatedAt(LocalDateTime.now());
         partner.setUpdatedAt(LocalDateTime.now());
 
@@ -173,7 +173,7 @@ public class PartnerServiceImpl implements PartnerService {
         }
 
         // ===== Mark for pending deletion =====
-        partner.setStatus(PartnerStatus.PENDING); // pending deletion for admin approval
+        partner.setStatus(PartnerStatus.PENDING_APPROVAL); // pending deletion for admin approval
         partner.setUpdatedAt(LocalDateTime.now());
         partnerRepo.save(partner);
 
@@ -190,10 +190,12 @@ public class PartnerServiceImpl implements PartnerService {
 
         // Approve partner
         partner.setStatus(PartnerStatus.APPROVED);
+
+        partner.setAgreementStatus(PartnerAgreementStatus.REQUIRED);
         partner.setUpdatedAt(LocalDateTime.now());
 
         // Save and return DTO
-        return modelMapper.map(partnerRepo.save(partner), PartnerResponseDto.class);
+        return mapToDto(partnerRepo.save(partner));
     }
 
     @Override
@@ -771,31 +773,23 @@ public class PartnerServiceImpl implements PartnerService {
                 count++;
             }
 
-
-
             // ================= Signatures =================
             Path signaturePath =
                     Paths.get("uploads/admin/signatures/admin-1.png");
 
-            if (!Files.exists(signaturePath)) {
-                throw new RuntimeException(
-                        "Admin signature not found at " + signaturePath
-                );
-            }
-
-            ImageData signatureData =
-                    ImageDataFactory.create(Files.readAllBytes(signaturePath));
-
             Table signTable = new Table(new float[]{1, 1});
             signTable.setWidth(UnitValue.createPercentValue(100));
-            signTable.setMarginTop(45);
+            signTable.setMarginTop(50);
+
+            Cell adminCell = new Cell().setBorder(Border.NO_BORDER);
+            if (Files.exists(signaturePath)) {
+                ImageData signatureData = ImageDataFactory.create(Files.readAllBytes(signaturePath));
+                adminCell.add(new Image(signatureData).setWidth(100).setHeight(40));
+            } else {
+                adminCell.add(new Paragraph("\n\n______________________"));
+            }
 
             // ---- Admin ----
-            Cell adminCell = new Cell().setBorder(Border.NO_BORDER);
-            adminCell.add(new Image(signatureData)
-                    .setWidth(120)
-                    .setHeight(50)
-            );
             adminCell.add(new Paragraph("System Owner / Director")
                     .setBold()
                     .setFontSize(12)
@@ -808,7 +802,7 @@ public class PartnerServiceImpl implements PartnerService {
                     .setTextAlignment(TextAlignment.CENTER);
 
             partnerCell.add(new Paragraph("\n\n--------------------------"));
-            partnerCell.add(new Paragraph("Partner")
+            partnerCell.add(new Paragraph("Partner Signature & Date")
                     .setBold()
                     .setFontSize(12)
             );
@@ -820,10 +814,11 @@ public class PartnerServiceImpl implements PartnerService {
             document.close();
 
             // ================= DB update =================
+        if (saveToDb) {
             agreementRepo.updateLatestFalse();
 
             PartnerAgreement agreement = PartnerAgreement.builder()
-                    .filePath(filePath.toString())
+                    .filePath(filePath.toString().replace("\\", "/"))
                     .version(version)
                     .conditions(conditions)
                     .createdAt(LocalDateTime.now())
@@ -832,11 +827,12 @@ public class PartnerServiceImpl implements PartnerService {
                     .build();
 
             return agreementRepo.save(agreement);
+        }
+        return null;
 
         } catch (IOException e) {
             throw new RuntimeException(
-                    "Failed to generate partner agreement PDF", e
-            );
+                    "Failed to generate partner agreement PDF: " + e.getMessage(), e);
         }
     }
 

@@ -7,10 +7,7 @@ import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
 import com.spareparts.spareparts_backend.entity.Partner;
 import com.spareparts.spareparts_backend.entity.SpareItem;
 import com.spareparts.spareparts_backend.entity.User;
-import com.spareparts.spareparts_backend.enums.OwnershipStatus;
-import com.spareparts.spareparts_backend.enums.SpareItemCategory;
-import com.spareparts.spareparts_backend.enums.SpareItemStatus;
-import com.spareparts.spareparts_backend.enums.StockStatus;
+import com.spareparts.spareparts_backend.enums.*;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.repo.PartnerRepo;
 import com.spareparts.spareparts_backend.repo.SpareItemRepo;
@@ -19,6 +16,10 @@ import com.spareparts.spareparts_backend.service.SpareItemService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -156,7 +157,7 @@ public class SpareItemServiceImpl implements SpareItemService {
                 .orElseThrow(() -> new RuntimeException("Approver not found"));
 
         // Only allow ADMIN or MANAGER
-        if (!(approver.getRole().name().equals("ADMIN") || approver.getRole().name().equals("MANAGER"))) {
+        if (approver.getRole() != Role.ADMIN && approver.getRole() != Role.MANAGER) {
             throw new RuntimeException("User is not authorized to approve");
         }
 
@@ -210,11 +211,10 @@ public class SpareItemServiceImpl implements SpareItemService {
 
 
     @Override
-    public List<SpareItemResponseDto> getAllSpareItemsForAdmin() {
-        return spareItemRepo.findAll()
-                .stream()
-                .map(this::mapToResponseDto)
-                .toList();
+    public Page<SpareItemResponseDto> getAllSpareItemsForAdmin(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return spareItemRepo.findAll(pageable)
+                .map(this::mapToResponseDto);
     }
 
     @Override
@@ -304,16 +304,21 @@ public class SpareItemServiceImpl implements SpareItemService {
     private List<String> storeImages(List<MultipartFile> images) {
         List<String> paths = new ArrayList<>();
         try {
-            Files.createDirectories(Paths.get(UPLOAD_DIR));
+            Path uploadPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
             for (MultipartFile file : images) {
                 String filename = System.currentTimeMillis() + "_" +
                         StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
-                Path path = Paths.get(UPLOAD_DIR, filename);
-                Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
-                paths.add(path.toString());
+                Path targetPath = uploadPath.resolve(filename);
+                Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+
+                // Web-friendly path එකක් සාදමු
+                paths.add("uploads/spareItem/" + filename);
             }
         } catch (IOException e) {
-            throw new RuntimeException("Failed to store images", e);
+            throw new RuntimeException("Could not store images. Error: " + e.getMessage());
         }
         return paths;
     }

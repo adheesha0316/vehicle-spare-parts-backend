@@ -6,6 +6,7 @@ import com.spareparts.spareparts_backend.dto.UserDto;
 import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.Role;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,7 +22,7 @@ public interface UserService {
     Optional<UserDtoReturn> getUserById(Integer id);
 
     // Get all users as DTO
-    List<UserDtoReturn> getAllUsers();
+    Page<UserDtoReturn> getAllUsers(int page, int size);
 
     // Admin approves a user
     UserDtoReturn approveUser(Integer userId);

@@ -69,7 +69,7 @@ public class ManagerServiceImpl implements ManagerService {
         // Map DTO to entity
         Manager manager = modelMapper.map(managerDto, Manager.class);
         manager.setUser(user);
-        manager.setStatus(ManagerStatus.PENDING);
+        manager.setStatus(ManagerStatus.PENDING_APPROVAL);
         manager.setCreatedAt(LocalDateTime.now());
 
         // Store files if present
@@ -101,7 +101,7 @@ public class ManagerServiceImpl implements ManagerService {
         manager.setAddress(managerDto.getAddress());
         manager.setNicNumber(managerDto.getNicNumber());
         manager.setUpdatedAt(LocalDateTime.now());
-        manager.setStatus(ManagerStatus.PENDING); // require admin approval again
+        manager.setStatus(ManagerStatus.PENDING_APPROVAL); // require admin approval again
 
         // Update images if provided
         if (nicFront != null && !nicFront.isEmpty()) {
@@ -149,7 +149,7 @@ public class ManagerServiceImpl implements ManagerService {
         }
 
         // Restore manager profile
-        manager.setStatus(ManagerStatus.PENDING); // Or APPROVED if you want auto-approval
+        manager.setStatus(ManagerStatus.PENDING_APPROVAL); // Or APPROVED if you want auto-approval
         manager.setUpdatedAt(LocalDateTime.now());
 
         // Save and return DTO
