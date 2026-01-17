@@ -43,6 +43,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/customer/**").hasAnyRole("CUSTOMER","ADMIN")
                         // Cart endpoints
                         .requestMatchers("/api/v1/cart/**").hasRole("CUSTOMER")
+                        // Order endpoints
+                        .requestMatchers("/api/v1/order/**").authenticated()
                         // User endpoints
                         .requestMatchers("/api/v1/user/**").hasAnyRole("USER","ADMIN")
                         // Any other request requires authentication

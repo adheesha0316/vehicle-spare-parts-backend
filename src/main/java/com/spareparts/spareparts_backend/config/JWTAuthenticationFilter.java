@@ -17,14 +17,13 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.lang.NonNull;
 
 import java.io.IOException;
 
@@ -49,7 +48,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -81,11 +80,26 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // ---------- USER APPROVAL ----------
-        if (user.getStatus() != UserStatus.APPROVED) {
-            sendError(response, 403, "User account not approved");
+        // ---------- USER STATUS VALIDATION ----------
+
+
+        if (user.getStatus() == UserStatus.DELETED) {
+            sendError(response, 403, "Your account has been deleted. Please contact support.");
             return;
         }
+
+
+        if (user.getStatus() == UserStatus.REJECTED) {
+            sendError(response, 403, "Your account registration was rejected.");
+            return;
+        }
+
+
+        if (user.getStatus() != UserStatus.APPROVED) {
+            sendError(response, 403, "Your account is pending approval by an admin.");
+            return;
+        }
+
 
 
         // ---------- ROLE-SPECIFIC VALIDATION ----------
@@ -95,7 +109,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                 String path = request.getServletPath();
 
                 // 1. Allow bypass for the creation endpoint
-                if (path.equals("/api/v1/manager/create")) {
+                if (path.startsWith("/api/v1/manager/create")) {
                     break;
                 }
                 if (manager == null) {
