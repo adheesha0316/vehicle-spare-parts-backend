@@ -45,6 +45,11 @@ public class ManagerServiceImpl implements ManagerService {
 
     @Override
     public ManagerDto createManager(Integer userId, ManagerDto managerDto, MultipartFile nicFront, MultipartFile nicBack, MultipartFile profileImage) {
+
+        if (managerRepo.existsByUserUserId(userId)) {
+            throw new RuntimeException("Manager profile already exists for this user!");
+        }
+
         // Fetch user or throw if not found
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(

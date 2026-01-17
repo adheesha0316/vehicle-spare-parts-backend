@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.service.Impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spareparts.spareparts_backend.dto.CategoryResponseDto;
 import com.spareparts.spareparts_backend.dto.SpareItemRequestDto;
 import com.spareparts.spareparts_backend.dto.SpareItemResponseDto;
@@ -17,6 +18,7 @@ import com.spareparts.spareparts_backend.repo.UserRepo;
 import com.spareparts.spareparts_backend.service.SpareItemService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,6 +39,7 @@ public class SpareItemServiceImpl implements SpareItemService {
     private final SpareItemRepo spareItemRepo;
     private final PartnerRepo partnerRepo;
     private final UserRepo userRepo;
+    private final ModelMapper mapper;
 
     private static final String UPLOAD_DIR = "uploads/spareItem/";
 
@@ -222,6 +225,18 @@ public class SpareItemServiceImpl implements SpareItemService {
                         category.getLabelEn(),  // English label
                         category.getLabelSi()   // Sinhalese label
                 ))
+                .toList();
+    }
+
+    @Override
+    public List<SpareItemResponseDto> searchSpareItems(String query) {
+        // Approved items විතරක් search එකට අහුකරමු
+        List<SpareItem> items = spareItemRepo
+                .findByItemNameContainingIgnoreCaseOrDescriptionContainingIgnoreCaseAndStatus(
+                        query, query, SpareItemStatus.APPROVED);
+
+        return items.stream()
+                .map(item -> mapper.map(item, SpareItemResponseDto.class)) // ModelMapper හෝ manual mapping
                 .toList();
     }
 

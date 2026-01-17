@@ -533,57 +533,61 @@ public class PartnerServiceImpl implements PartnerService {
 
     @Override
     public SpareItemResponseDto approveOrRejectSpareItem(Integer spareItemId, boolean approve, String rejectionReason, Integer approverId) {
-        // Fetch the spare item
         SpareItem item = spareItemRepo.findById(spareItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Spare item not found with id " + spareItemId));
 
-        // Only pending items can be approved/rejected
-        if (item.getStatus() != SpareItemStatus.PENDING && item.getStatus() != SpareItemStatus.UPDATE_PENDING) {
+        SpareItemStatus currentStatus = item.getStatus();
+        if (currentStatus != SpareItemStatus.PENDING && currentStatus != SpareItemStatus.UPDATE_PENDING) {
             throw new RuntimeException("Only pending or update-pending items can be approved or rejected");
         }
 
-        // Fetch the approver
         User approver = userRepo.findById(approverId)
                 .orElseThrow(() -> new ResourceNotFoundException("Approver not found with id " + approverId));
 
-        // Ensure approver has proper role
-        if (approver.getRole() != Role.ADMIN && approver.getRole() != Role.MANAGER) {
-            throw new RuntimeException("You are not authorized to approve or reject spare items");
-        }
-
         if (approve) {
-            item.setStatus(SpareItemStatus.APPROVED);
-            item.setRejectionReason(null);
-
-            // If this was an update request, copy pending fields to main fields
-            if (item.getStatus() == SpareItemStatus.UPDATE_PENDING) {
+            // UPDATE_PENDING
+            if (currentStatus == SpareItemStatus.UPDATE_PENDING) {
                 if (item.getPendingName() != null) item.setName(item.getPendingName());
                 if (item.getPendingBrand() != null) item.setBrand(item.getPendingBrand());
                 if (item.getPendingDescription() != null) item.setDescription(item.getPendingDescription());
                 if (item.getPendingCategory() != null) item.setCategory(item.getPendingCategory());
                 if (item.getPendingPrice() != null) item.setPrice(item.getPendingPrice());
                 if (item.getPendingQuantity() != null) item.setQuantity(item.getPendingQuantity());
-                if (item.getPendingImages() != null && !item.getPendingImages().isEmpty()) item.setImages(item.getPendingImages());
+                if (item.getPendingImages() != null && !item.getPendingImages().isEmpty()) {
+                    item.setImages(item.getPendingImages());
+                }
 
-                // Clear pending fields
-                item.setPendingName(null);
-                item.setPendingBrand(null);
-                item.setPendingDescription(null);
-                item.setPendingCategory(null);
-                item.setPendingPrice(null);
-                item.setPendingQuantity(null);
-                item.setPendingImages(null);
+                // Pending fields clear
+                clearPendingFields(item);
             }
+
+            item.setStatus(SpareItemStatus.APPROVED);
+            item.setRejectionReason(null);
         } else {
-            item.setStatus(SpareItemStatus.DELETED);
+            if (currentStatus == SpareItemStatus.UPDATE_PENDING) {
+                item.setStatus(SpareItemStatus.APPROVED);
+                clearPendingFields(item);
+            } else {
+                item.setStatus(SpareItemStatus.REJECTED);
+            }
             item.setRejectionReason(rejectionReason != null ? rejectionReason : "No reason provided");
         }
 
         item.setApprovedBy(approver);
         item.setUpdatedAt(LocalDateTime.now());
 
-        SpareItem updatedItem = spareItemRepo.save(item);
-        return mapToDto(updatedItem);
+        return mapToDto(spareItemRepo.save(item));
+    }
+
+    // Helper method to keep code clean
+    private void clearPendingFields(SpareItem item) {
+        item.setPendingName(null);
+        item.setPendingBrand(null);
+        item.setPendingDescription(null);
+        item.setPendingCategory(null);
+        item.setPendingPrice(null);
+        item.setPendingQuantity(null);
+        item.setPendingImages(null);
     }
 
     @Override

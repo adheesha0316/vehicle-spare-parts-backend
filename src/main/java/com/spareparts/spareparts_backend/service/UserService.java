@@ -2,6 +2,7 @@ package com.spareparts.spareparts_backend.service;
 
 import com.spareparts.spareparts_backend.dto.LoginRequestDto;
 import com.spareparts.spareparts_backend.dto.LoginResponseDto;
+import com.spareparts.spareparts_backend.dto.UserDto;
 import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.Role;
@@ -11,7 +12,7 @@ import java.util.Optional;
 
 public interface UserService {
     // Register user (returns DTO for API response)
-    UserDtoReturn registerUser(User user);
+    UserDtoReturn registerUser(UserDto userDto);
 
     // ---------------- LOGIN ---------------- //
     LoginResponseDto loginUser(LoginRequestDto loginRequestDto);

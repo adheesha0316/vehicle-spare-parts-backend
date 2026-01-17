@@ -92,6 +92,12 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
         switch (user.getRole()) {
             case MANAGER -> {
                 Manager manager = managerRepo.findByUserUserId(user.getUserId()).orElse(null);
+                String path = request.getServletPath();
+
+                // 1. Allow bypass for the creation endpoint
+                if (path.equals("/api/v1/manager/create")) {
+                    break;
+                }
                 if (manager == null) {
                     sendError(response, 403, "Manager profile not found");
                     return;
@@ -111,6 +117,13 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             }
             case PARTNER -> {
                 Partner partner = partnerRepo.findByUser_UserId(user.getUserId()).orElse(null);
+                String path = request.getServletPath();
+
+                // 1. Allow bypass for the creation endpoint
+                if (path.equals("/api/v1/partner/create")) {
+                    break;
+                }
+
                 if (partner == null) {
                     sendError(response, 403, "Partner profile not found");
                     return;

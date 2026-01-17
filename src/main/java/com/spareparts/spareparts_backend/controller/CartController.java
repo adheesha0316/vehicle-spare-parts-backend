@@ -29,7 +29,7 @@ public class CartController {
         cartService.addToCart(customerId, requestDto);
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Item added to cart"
+                "message", "Item added to cart successfully"
         ));
     }
 

@@ -1,7 +1,6 @@
 package com.spareparts.spareparts_backend.controller;
 
 import com.spareparts.spareparts_backend.dto.PartnerSignedAgreementDto;
-import com.spareparts.spareparts_backend.entity.PartnerSignedAgreement;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.repo.UserRepo;
@@ -10,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,12 +23,10 @@ public class PartnerSignedAgreementController {
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<PartnerSignedAgreementDto> approveSignedAgreement(
-            @PathVariable("id") Integer signedAgreementId
+            @PathVariable("id") Integer signedAgreementId,
+            Authentication authentication
     ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName(); // from JWT
-
-        User approver = userRepo.findByEmail(email)
+        User approver = userRepo.findByEmail(authentication.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Approver not found"));
 
         var approved = partnerService.approveSignedAgreement(
@@ -38,8 +34,7 @@ public class PartnerSignedAgreementController {
                 approver.getUserId()
         );
 
-        PartnerSignedAgreementDto dto = partnerService.mapToDto(approved);
-        return ResponseEntity.ok(dto);
+        return ResponseEntity.ok(partnerService.mapToDto(approved));
     }
 
     // ================= REJECT SIGNED AGREEMENT =================
@@ -47,12 +42,10 @@ public class PartnerSignedAgreementController {
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<PartnerSignedAgreementDto> rejectSignedAgreement(
             @PathVariable("id") Integer signedAgreementId,
-            @RequestParam String reason
+            @RequestParam String reason,
+            Authentication authentication
     ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName(); // from JWT
-
-        User approver = userRepo.findByEmail(email)
+        User approver = userRepo.findByEmail(authentication.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Approver not found"));
 
         var rejected = partnerService.rejectSignedAgreement(
@@ -61,8 +54,7 @@ public class PartnerSignedAgreementController {
                 reason
         );
 
-        PartnerSignedAgreementDto dto = partnerService.mapToDto(rejected);
-        return ResponseEntity.ok(dto);
+        return ResponseEntity.ok(partnerService.mapToDto(rejected));
     }
 
 

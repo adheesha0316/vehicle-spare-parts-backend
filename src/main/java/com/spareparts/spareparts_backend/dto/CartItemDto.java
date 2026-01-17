@@ -17,6 +17,8 @@ public class CartItemDto {
     private Integer spareItemId;
     private String spareItemName;
     private int quantity;
+    private boolean isAvailable;
+    private String statusMessage;
     private BigDecimal unitPrice;
     private BigDecimal subTotal;
 }

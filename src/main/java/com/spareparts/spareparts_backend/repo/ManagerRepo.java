@@ -17,4 +17,6 @@ public interface ManagerRepo extends JpaRepository<Manager,Integer> {
 
     Optional<Manager> findByManagerIdAndStatusNot(Integer managerId, ManagerStatus status);
 
+    boolean existsByUserUserId(Integer userId);
+
 }

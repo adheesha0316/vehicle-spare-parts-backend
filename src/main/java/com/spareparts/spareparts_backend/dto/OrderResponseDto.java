@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -15,10 +16,10 @@ import java.util.List;
 public class OrderResponseDto {
     private Integer orderId;
     private Integer customerId;
+    private String customerName;
     private LocalDateTime orderDate;
     private String orderStatus;  // e.g., PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED
-    private double totalAmount;
-
+    private BigDecimal totalAmount;
     private List<OrderItemDto> items;  // list of ordered items
 
 }

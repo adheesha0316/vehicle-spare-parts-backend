@@ -82,4 +82,8 @@ public interface SpareItemRepo extends JpaRepository<SpareItem, Integer> {
             SpareItemStatus status
     );
 
+    List<SpareItem> findByItemNameContainingIgnoreCaseOrDescriptionContainingIgnoreCaseAndStatus(
+            String name, String description, SpareItemStatus status
+    );
+
 }

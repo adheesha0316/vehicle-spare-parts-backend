@@ -6,6 +6,7 @@ import com.spareparts.spareparts_backend.dto.UserDto;
 import com.spareparts.spareparts_backend.dto.UserDtoReturn;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.UserStatus;
+import com.spareparts.spareparts_backend.exception.BadRequestException;
 import com.spareparts.spareparts_backend.service.UserService;
 import com.spareparts.spareparts_backend.utill.JWTTokenGenerator;
 import lombok.RequiredArgsConstructor;
@@ -29,60 +30,35 @@ public class AuthController {
 
     // ---------------- REGISTER ---------------- //
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody UserDto userDto) {
-
-        // Check if email already exists
-        if (userService.existsByEmail(userDto.getEmail())) {
-            return ResponseEntity.status(409) // HTTP 409 Conflict
-                    .body(Map.of("error", "Email already exists"));
-        }
-
-        // Register the user
-        UserDtoReturn registeredUser = userService.registerUser(
-                User.builder()
-                        .username(userDto.getUsername())
-                        .email(userDto.getEmail())
-                        .password(userDto.getPassword())
-                        .role(userDto.getRole())
-                        .build()
-        );
-
-        return ResponseEntity.ok(registeredUser);
+    public ResponseEntity<UserDtoReturn> registerUser(@RequestBody UserDto userDto) {
+        return ResponseEntity.ok(userService.registerUser(userDto));
     }
 
 
     // ---------------- LOGIN ---------------- //
     @PostMapping("/login")
-    public ResponseEntity<?> loginUser(@RequestBody LoginRequestDto loginRequestDto) {
-        try {
-            // Authenticate
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            loginRequestDto.getEmail(),
-                            loginRequestDto.getPassword()
-                    )
-            );
+    public ResponseEntity<LoginResponseDto> loginUser(@RequestBody LoginRequestDto loginRequestDto) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        loginRequestDto.getEmail(),
+                        loginRequestDto.getPassword()
+                )
+        );
 
-            // Get full User entity
-            User user = userService.getUserEntityByEmail(loginRequestDto.getEmail());
+        // 2. Get User Entity
+        User user = userService.getUserEntityByEmail(loginRequestDto.getEmail());
 
-            // Check if approved
-            if (user.getStatus() != UserStatus.APPROVED) {
-                return ResponseEntity.status(403)
-                        .body(Map.of("error", "User account not approved"));
-            }
-
-            // Normal login response
-            LoginResponseDto loginResponse = userService.loginUser(loginRequestDto);
-            String token = jwtTokenGenerator.generateToken(user);
-            loginResponse.setToken(token);
-
-            return ResponseEntity.ok(loginResponse);
-
-        } catch (AuthenticationException e) {
-            return ResponseEntity.status(401)
-                    .body(Map.of("error", "Invalid email or password"));
+        // 3. Status Validation
+        if (user.getStatus() != UserStatus.APPROVED) {
+            throw new BadRequestException("User account not approved by Admin");
         }
+
+        // 4. Generate Token & Prepare Response
+        LoginResponseDto loginResponse = userService.loginUser(loginRequestDto);
+        String token = jwtTokenGenerator.generateToken(user);
+        loginResponse.setToken(token);
+
+        return ResponseEntity.ok(loginResponse);
     }
 
 }

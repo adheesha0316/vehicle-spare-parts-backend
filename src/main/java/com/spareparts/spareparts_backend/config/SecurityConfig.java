@@ -33,8 +33,10 @@ public class SecurityConfig {
                         // Admin endpoints
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // Manager endpoints
+                        .requestMatchers("/api/v1/manager/create").authenticated()
                         .requestMatchers("/api/v1/manager/**").hasAnyRole("MANAGER","ADMIN")
                         // Partner endpoints
+                        .requestMatchers("/api/v1/partner/create").authenticated()
                         .requestMatchers("/api/v1/partner/**").hasAnyRole("PARTNER","ADMIN","MANAGER")
                         // Customer endpoints
                         .requestMatchers("/api/v1/customer/create").authenticated()

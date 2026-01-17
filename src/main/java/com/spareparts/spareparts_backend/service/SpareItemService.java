@@ -34,6 +34,9 @@ public interface SpareItemService {
     List<SpareItemResponseDto> getAllSpareItemsForAdmin(); // For admin
     List<CategoryResponseDto> getAllCategories();
 
+    //--------------- SEARCH ---------------
+    List<SpareItemResponseDto> searchSpareItems(String query);
+
     // ---------------- OWNERSHIP ----------------
     List<SpareItemResponseDto> findPlatformItems();          // All items owned by PLATFORM_OWNER
     List<SpareItemResponseDto> findPartnerItems(Integer partnerId);  // All items owned by a speci

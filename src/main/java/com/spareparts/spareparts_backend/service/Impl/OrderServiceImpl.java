@@ -3,16 +3,13 @@ package com.spareparts.spareparts_backend.service.Impl;
 import com.spareparts.spareparts_backend.dto.OrderItemDto;
 import com.spareparts.spareparts_backend.dto.OrderResponseDto;
 import com.spareparts.spareparts_backend.entity.*;
-import com.spareparts.spareparts_backend.enums.CustomerStatus;
-import com.spareparts.spareparts_backend.enums.OrderStatus;
-import com.spareparts.spareparts_backend.enums.StockStatus;
+import com.spareparts.spareparts_backend.enums.*;
+import com.spareparts.spareparts_backend.exception.BadRequestException;
 import com.spareparts.spareparts_backend.exception.OrderCancellationNotAllowedException;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
-import com.spareparts.spareparts_backend.repo.CartRepo;
-import com.spareparts.spareparts_backend.repo.CustomerRepo;
-import com.spareparts.spareparts_backend.repo.OrderItemRepo;
-import com.spareparts.spareparts_backend.repo.OrderRepo;
+import com.spareparts.spareparts_backend.repo.*;
 import com.spareparts.spareparts_backend.service.OrderService;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,14 +27,17 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepo orderRepo;
     private final OrderItemRepo orderItemRepo;
+    private final UserRepo userRepo;
+    private final SpareItemRepo spareItemRepo;
     private final CartRepo cartRepo;
     private final CustomerRepo customerRepo;
 
     // ================= PLACE ORDER =================
 
     @Override
+    @Transactional
     public OrderResponseDto placeOrder(Integer customerId) {
-        // ================= GET CUSTOMER =================
+        // 1. Get and Validate Customer
         Customer customer = customerRepo.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
@@ -45,7 +45,7 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalStateException("Customer account is not active");
         }
 
-        // ================= GET CART =================
+        // 2. Get and Validate Cart
         Cart cart = cartRepo.findByCustomerCustomerId(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
 
@@ -53,41 +53,53 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalStateException("Cannot place order with empty cart");
         }
 
-        // ================= CREATE ORDER =================
+        // 3. Create Order Instance
         Order order = Order.builder()
                 .customer(customer)
                 .status(OrderStatus.PENDING)
-                .totalAmount(BigDecimal.ZERO) // Initialize totalAmount
-                .items(new ArrayList<>())     // Initialize items
-                .statusUpdates(new ArrayList<>()) // Initialize statusUpdates
+                .totalAmount(BigDecimal.ZERO)
+                .items(new ArrayList<>())
+                .statusUpdates(new ArrayList<>())
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        order = orderRepo.save(order);
-
-        // ================= CREATE ORDER ITEMS =================
         BigDecimal totalAmount = BigDecimal.ZERO;
 
+        // 4. Process Items, Validate Stock, and Reduce Inventory
         for (CartItem cartItem : cart.getItems()) {
-            BigDecimal unitPrice = BigDecimal.valueOf(cartItem.getSpareItem().getPrice());
+            SpareItem spareItem = cartItem.getSpareItem();
+
+            // --- CRITICAL CHECK ---
+            if (spareItem.isDeleted() ||
+                    spareItem.getStatus() != SpareItemStatus.APPROVED ||
+                    spareItem.getQuantity() < cartItem.getQuantity()) {
+                throw new BadRequestException("Item '" + spareItem.getName() + "' is no longer available in the requested quantity.");
+            }
+
+            // --- REDUCE STOCK ---
+            spareItem.setQuantity(spareItem.getQuantity() - cartItem.getQuantity());
+            spareItemRepo.save(spareItem); // Inventory එක update කිරීම
+
+            // Calculate Totals
+            BigDecimal unitPrice = BigDecimal.valueOf(spareItem.getPrice());
             BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity()));
             totalAmount = totalAmount.add(itemTotal);
 
             OrderItem orderItem = OrderItem.builder()
                     .order(order)
-                    .spareItem(cartItem.getSpareItem())
-                    .spareItemName(cartItem.getSpareItem().getName()) // Snapshot of name
+                    .spareItem(spareItem)
+                    .spareItemName(spareItem.getName())
                     .quantity(cartItem.getQuantity())
                     .unitPrice(unitPrice)
                     .totalPrice(itemTotal)
                     .build();
 
-            order.getItems().add(orderItem); // Add to order's items list
+            order.getItems().add(orderItem);
         }
 
-        order.setTotalAmount(totalAmount); // Set final total amount
+        order.setTotalAmount(totalAmount);
 
-        // ================= STATUS HISTORY =================
+        // 5. Add Initial Status History
         order.getStatusUpdates().add(
                 OrderStatusUpdate.builder()
                         .order(order)
@@ -96,12 +108,13 @@ public class OrderServiceImpl implements OrderService {
                         .build()
         );
 
-        // ================= CLEAR CART =================
-        cart.getItems().clear();
-        cartRepo.save(cart); // Persist cart clearing
+        // 6. Save Everything and Clear Cart
+        Order savedOrder = orderRepo.save(order);
 
-        // ================= MAP TO RESPONSE =================
-        return mapToResponse(order);
+        cart.getItems().clear();
+        cartRepo.save(cart);
+
+        return mapToResponse(savedOrder);
     }
 
     // ================= CUSTOMER =================
@@ -109,7 +122,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public List<OrderResponseDto> getOrderHistory(Integer customerId) {
-        return orderRepo.findByCustomer_CustomerId(customerId)
+        return orderRepo.findByCustomerCustomerIdOrderByCreatedAtDesc(customerId)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -174,10 +187,27 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void updateOrderStatus(Integer orderId, OrderStatus status) {
         Order order = orderRepo.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + orderId));
 
+        // 1. Get current logged-in user
+        String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepo.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // 2. Security Check
+        if (currentUser.getRole() == Role.PARTNER) {
+            boolean ownsProductInOrder = order.getItems().stream()
+                    .anyMatch(item -> item.getSpareItem().getPartner().getUser().getEmail().equals(currentUserEmail));
+
+            if (!ownsProductInOrder) {
+                throw new org.springframework.security.access.AccessDeniedException("You are not authorized to update this order status.");
+            }
+        }
+
+        // 3. Update Status
         order.setStatus(status);
 
+        // 4. Audit Log (History)
         order.getStatusUpdates().add(
                 OrderStatusUpdate.builder()
                         .order(order)
@@ -185,6 +215,8 @@ public class OrderServiceImpl implements OrderService {
                         .timestamp(LocalDateTime.now())
                         .build()
         );
+
+        orderRepo.save(order);
     }
 
     @Override
@@ -210,16 +242,14 @@ public class OrderServiceImpl implements OrderService {
     // ================= MAPPER =================
 
     private OrderResponseDto mapToResponse(Order order) {
-
-        List<OrderItemDto> items = orderItemRepo
-                .findByOrder_OrderId(order.getOrderId())
-                .stream()
+        // Repository එකට Query කරන්නේ නැතිව Entity එකේ තියෙන list එකම පාවිච්චි කරන්න
+        List<OrderItemDto> itemDtos = order.getItems().stream()
                 .map(item -> OrderItemDto.builder()
                         .spareItemId(item.getSpareItem().getSpareItemId())
-                        .spareItemName(item.getSpareItem().getName())
+                        .spareItemName(item.getSpareItemName()) // Snapshot name එක පාවිච්චි කරන්න
                         .quantity(item.getQuantity())
-                        .unitPrice(item.getUnitPrice().doubleValue())
-                        .totalPrice(item.getTotalPrice().doubleValue())
+                        .unitPrice(item.getUnitPrice()) // BigDecimal ලෙසම තබාගන්න (Recommended)
+                        .totalPrice(item.getTotalPrice())
                         .build()
                 )
                 .collect(Collectors.toList());
@@ -227,11 +257,11 @@ public class OrderServiceImpl implements OrderService {
         return OrderResponseDto.builder()
                 .orderId(order.getOrderId())
                 .customerId(order.getCustomer().getCustomerId())
+                .customerName(order.getCustomer().getUser().getUsername())
                 .orderDate(order.getCreatedAt())
-                .orderStatus(order.getStatus().name()) // enum → String
-                .totalAmount(order.getTotalAmount().doubleValue())
-                .items(items)
+                .orderStatus(order.getStatus().name())
+                .totalAmount(order.getTotalAmount())
+                .items(itemDtos)
                 .build();
-
     }
 }

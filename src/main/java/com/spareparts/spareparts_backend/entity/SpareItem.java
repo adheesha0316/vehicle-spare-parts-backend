@@ -45,6 +45,9 @@ public class SpareItem {
     @Column(nullable = false)
     private Integer quantity;
 
+    @Column(nullable = false)
+    private boolean deleted = false;
+
     // ================= IMAGES =================
     @Builder.Default
     @ElementCollection

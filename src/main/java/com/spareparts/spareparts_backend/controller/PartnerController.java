@@ -3,17 +3,17 @@ package com.spareparts.spareparts_backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spareparts.spareparts_backend.dto.*;
 import com.spareparts.spareparts_backend.entity.PartnerAgreement;
-import com.spareparts.spareparts_backend.entity.PartnerSignedAgreement;
+import com.spareparts.spareparts_backend.enums.OrderStatus;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
+import com.spareparts.spareparts_backend.service.OrderService;
 import com.spareparts.spareparts_backend.service.PartnerService;
+import com.spareparts.spareparts_backend.service.SpareItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,6 +27,8 @@ import java.util.Map;
 public class PartnerController {
 
     private final PartnerService partnerService;
+    private final SpareItemService spareItemService;
+    private final OrderService orderService;
     private final ObjectMapper mapper;
 
     // ================= PARTNER PROFILE =================
@@ -54,7 +56,7 @@ public class PartnerController {
 
     @PutMapping(value = "/{partnerId}/update",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('PARTNER')")
+    @PreAuthorize("hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
     public ResponseEntity<PartnerResponseDto> requestProfileUpdate(
             @PathVariable Integer partnerId,
             @RequestPart("partner") String partnerJson,
@@ -74,7 +76,7 @@ public class PartnerController {
     }
 
     @PutMapping("/request-delete/{partnerId}")
-    @PreAuthorize("hasRole('PARTNER')")
+    @PreAuthorize("hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
     public ResponseEntity<PartnerResponseDto> requestProfileDelete(
             @PathVariable Integer partnerId
     ) {
@@ -83,71 +85,9 @@ public class PartnerController {
         );
     }
 
-
-    // ================= APPROVE PARTNER =================
-    @PutMapping("/{partnerId}/approve")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PartnerResponseDto> approvePartner(
-            @PathVariable Integer partnerId) {
-        PartnerResponseDto response = partnerService.approvePartnerProfile(partnerId);
-        return ResponseEntity.ok(response);
-    }
-
-    // ================= REJECT PARTNER =================
-    @PutMapping("/{partnerId}/reject")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PartnerResponseDto> rejectPartner(
-            @PathVariable Integer partnerId,
-            @RequestParam String reason) {
-        PartnerResponseDto response = partnerService.rejectPartnerProfile(partnerId, reason);
-        return ResponseEntity.ok(response);
-    }
-
-
-    // ================= ADMIN ACTIONS =================
-    @DeleteMapping("/admin/delete/{partnerId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deletePartnerByAdmin(@PathVariable Integer partnerId) {
-        partnerService.deletePartnerByAdmin(partnerId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PutMapping("/admin/restore/{partnerId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> restorePartnerByAdmin(@PathVariable Integer partnerId) {
-        partnerService.restorePartnerByAdmin(partnerId);
-        return ResponseEntity.ok().build();
-    }
-
-    // ================= GET PARTNER =================
-
-    @GetMapping("/user/get/{userId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<PartnerResponseDto> getPartnerByUserId(@PathVariable Integer userId) {
-        return ResponseEntity.ok(
-                partnerService.getPartnerByUserId(userId)
-        );
-    }
-
-    @GetMapping("/get/{partnerId}")
-    @PreAuthorize("hasAnyRole('ADMIN','PARTNER')")
-    public ResponseEntity<PartnerResponseDto> getPartnerById(@PathVariable Integer partnerId) {
-        return ResponseEntity.ok(
-                partnerService.getPartnerById(partnerId)
-        );
-    }
-
-    @GetMapping("/getAll")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<PartnerResponseDto>> getAllPartners() {
-        return ResponseEntity.ok(
-                partnerService.getAllPartners()
-        );
-    }
-
     // ================= PARTNER AGREEMENT =================
     @GetMapping("/agreement/download/{partnerId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER')")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId))")
     public ResponseEntity<?> downloadAgreement(@PathVariable Integer partnerId) {
         try {
             byte[] file = partnerService.downloadAgreement(partnerId);
@@ -183,7 +123,7 @@ public class PartnerController {
             value = "/agreement/accept/{partnerId}",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
-    @PreAuthorize("hasRole('PARTNER')")
+    @PreAuthorize("hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
     public ResponseEntity<PartnerResponseDto> acceptAgreement(
             @PathVariable Integer partnerId,
             @RequestPart("signedAgreement") MultipartFile signedAgreement
@@ -203,137 +143,10 @@ public class PartnerController {
         }
     }
 
-
-    /**
-     * ADMIN & MANAGER ONLY
-     */
-    @GetMapping("/{partnerId}/signed-agreements")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public ResponseEntity<List<PartnerSignedAgreementDto>> getSignedAgreementsByPartner(
-            @PathVariable Integer partnerId
-    ) {
-        List<PartnerSignedAgreementDto> dtos = partnerService
-                .getSignedAgreementsByPartner(partnerId) // returns List<PartnerSignedAgreement>
-                .stream()
-                .map(partnerService::mapToDto) // convert each entity to DTO
-                .toList();
-
-        return ResponseEntity.ok(dtos);
-    }
-
-
-    /**
-     * ADMIN & MANAGER ONLY
-     */
-    @GetMapping("/{partnerId}/signed-agreements/latest")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public ResponseEntity<PartnerSignedAgreement> getLatestSignedAgreementByPartner(
-            @PathVariable Integer partnerId
-    ) {
-        return ResponseEntity.ok(
-                partnerService.getLatestSignedAgreementByPartner(partnerId)
-        );
-    }
-
-
-
-    // ================= ADMIN AGREEMENT =================
-
-    @PostMapping("/agreement/generate")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> generateAgreement(
-            @RequestParam String conditions,
-            @RequestParam String version
-    ) {
-        try {
-            PartnerAgreement agreement =
-                    partnerService.generateAgreementPdf(
-                            "Common Partner",   // placeholder partner name
-                            "Company Name",     // placeholder company name
-                            conditions,
-                            version,
-                            true
-                    );
-
-            return ResponseEntity.ok(agreement);
-
-        } catch (RuntimeException e) {
-
-            // Version duplicate case
-            if (e.getMessage().contains("version")) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(Map.of(
-                                "message", e.getMessage()
-                        ));
-            }
-
-            // Other errors
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of(
-                            "message", "Failed to generate agreement",
-                            "error", e.getMessage()
-                    ));
-        }
-    }
-
-
-    // Get the current agreement's conditions
-    @GetMapping("/agreement/current/conditions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER')")
-    public ResponseEntity<?> getCurrentConditions() {
-        try {
-            String conditions = partnerService.getCurrentAgreementConditions();
-            return ResponseEntity.ok(Map.of(
-                    "conditions", conditions
-            ));
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(404)
-                    .body(Map.of(
-                            "message", e.getMessage()
-                    ));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(500)
-                    .body(Map.of(
-                            "message", "Failed to read agreement PDF",
-                            "error", e.getMessage()
-                    ));
-        }
-    }
-
-
-    @PostMapping(value = "/admin/agreement/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PartnerAgreement> uploadAgreement(
-            @RequestPart MultipartFile agreementFile,
-            @RequestParam String version
-    ) {
-        return ResponseEntity.ok(
-                partnerService.uploadAgreement(agreementFile, version)
-        );
-    }
-
-    @DeleteMapping("/admin/agreement/{agreementId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> removeAgreement(@PathVariable Integer agreementId) {
-        partnerService.removeAgreement(agreementId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping(value = "/admin/agreement/upload-new", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PartnerAgreement> uploadNewAgreementVersion(
-            @RequestPart MultipartFile agreementFile,
-            @RequestParam String version
-    ) {
-        return ResponseEntity.ok(
-                partnerService.uploadNewAgreementVersion(agreementFile, version)
-        );
-    }
-
     // ================= ADMIN / PARTNER AGREEMENT =================
 
     @GetMapping("/agreement/latest")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER')")
+    @PreAuthorize("hasRole('PARTNER')")
     public ResponseEntity<PartnerAgreement> getLatestAgreement() {
         try {
             PartnerAgreement latestAgreement = partnerService.getLatestAgreement();
@@ -349,10 +162,9 @@ public class PartnerController {
 
 
     // ================= SPARE ITEM =================
-
     @PostMapping(value = "/{partnerId}/spare-items",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('PARTNER')")
+    @PreAuthorize("hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
     public ResponseEntity<SpareItemResponseDto> createSpareItemRequest(
             @PathVariable Integer partnerId,
             @RequestPart("spareItem") String spareItemJson,
@@ -371,7 +183,7 @@ public class PartnerController {
 
     @PutMapping(value = "/{partnerId}/spare-items/{spareItemId}",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('PARTNER')")
+    @PreAuthorize("hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
     public ResponseEntity<SpareItemResponseDto> RequestSpareItemUpdate(
             @PathVariable Integer partnerId,
             @PathVariable Integer spareItemId,
@@ -391,7 +203,7 @@ public class PartnerController {
 
 
     @DeleteMapping("/{partnerId}/spare-items/{spareItemId}")
-    @PreAuthorize("hasRole('PARTNER')")
+    @PreAuthorize("hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
     public ResponseEntity<SpareItemResponseDto> requestSpareItemDelete(
             @PathVariable Integer partnerId,
             @PathVariable Integer spareItemId
@@ -401,25 +213,10 @@ public class PartnerController {
         );
     }
 
-    // ================= APPROVAL =================
-
-    @PutMapping("/spare-items/{spareItemId}/approve-reject")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<SpareItemResponseDto> approveOrRejectSpareItem(
-            @PathVariable Integer spareItemId,
-            @RequestParam boolean approve,
-            @RequestParam(required = false) String rejectionReason,
-            @RequestParam Integer approverId
-    ) {
-        return ResponseEntity.ok(
-                partnerService.approveOrRejectSpareItem(spareItemId, approve, rejectionReason, approverId)
-        );
-    }
-
     // ================= SPARE ITEM LISTS =================
 
     @GetMapping("/{partnerId}/spare-items/approved")
-    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN', 'MANAGER')")
+    @PreAuthorize("hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
     public ResponseEntity<List<SpareItemResponseDto>> getApprovedSpareItems(
             @PathVariable Integer partnerId
     ) {
@@ -429,7 +226,7 @@ public class PartnerController {
     }
 
     @GetMapping("/{partnerId}/spare-items/rejected")
-    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN', 'MANAGER')")
+    @PreAuthorize("hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
     public ResponseEntity<List<SpareItemResponseDto>> getRejectedSpareItems(
             @PathVariable Integer partnerId
     ) {
@@ -439,7 +236,7 @@ public class PartnerController {
     }
 
     @GetMapping("/{partnerId}/spare-items/pending")
-    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN', 'MANAGER')")
+    @PreAuthorize("hasRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
     public ResponseEntity<List<SpareItemResponseDto>> getPendingSpareItems(
             @PathVariable Integer partnerId
     ) {
@@ -448,15 +245,28 @@ public class PartnerController {
         );
     }
 
-    // ================= DELETE OLD AGREEMENTS =================
-    @DeleteMapping("/agreement/cleanup")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> cleanupOldAgreements() {
-        partnerService.removeAllOldAgreements();
+    @GetMapping("/my-spare-items/{partnerId}")
+    @PreAuthorize("hasAnyRole('PARTNER') and @partnerSecurity.isOwner(#partnerId)")
+    public ResponseEntity<List<SpareItemResponseDto>> getPartnerItems(
+            @PathVariable Integer partnerId
+    ) {
         return ResponseEntity.ok(
-                Map.of("message", "Old agreement versions removed successfully")
+                spareItemService.findPartnerItems(partnerId)
         );
     }
 
+    //============== Order Controllers ==============
+    @PutMapping("/orders/{orderId}/status")
+    @PreAuthorize("hasRole('PARTNER')")
+    public ResponseEntity<?> updateOrderStatusByPartner(
+            @PathVariable Integer orderId,
+            @RequestParam OrderStatus status) {
 
+        orderService.updateOrderStatus(orderId, status);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Order status updated by Partner"
+        ));
+    }
 }

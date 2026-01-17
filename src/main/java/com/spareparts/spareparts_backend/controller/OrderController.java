@@ -24,14 +24,8 @@ public class OrderController {
     // ================= PLACE ORDER =================
     @PostMapping("/{customerId}/place")
     @PreAuthorize("hasRole('CUSTOMER') and @customerSecurity.isOwner(#customerId)")
-    public ResponseEntity<?> placeOrder(@PathVariable Integer customerId) {
-        OrderResponseDto response = orderService.placeOrder(customerId);
-
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Order placed successfully",
-                "data", response
-        ));
+    public ResponseEntity<OrderResponseDto> placeOrder(@PathVariable Integer customerId) {
+        return ResponseEntity.ok(orderService.placeOrder(customerId));
     }
 
     // ================= CUSTOMER =================
@@ -83,9 +77,5 @@ public class OrderController {
         ));
     }
 
-    @GetMapping("/all")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public ResponseEntity<List<OrderResponseDto>> allOrders() {
-        return ResponseEntity.ok(orderService.getAllOrders());
-    }
+
 }

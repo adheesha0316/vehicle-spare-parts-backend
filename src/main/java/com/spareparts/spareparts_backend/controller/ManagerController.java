@@ -9,8 +9,6 @@ import com.spareparts.spareparts_backend.enums.UserStatus;
 import com.spareparts.spareparts_backend.service.ManagerService;
 import com.spareparts.spareparts_backend.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -19,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -69,7 +66,7 @@ public class ManagerController {
             value = "/update/{managerId}",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
-    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @PreAuthorize("hasRole('MANAGER') and @managerSecurity.isOwner(#managerId)")
     public ResponseEntity<ManagerDto> updateManager(
             @PathVariable Integer managerId,
             @RequestPart("manager") String managerJson,
@@ -89,88 +86,4 @@ public class ManagerController {
         return ResponseEntity.ok(updatedManager);
     }
 
-
-
-    // ============================
-    // DELETE MANAGER PROFILE (ADMIN)
-    // ============================
-    @DeleteMapping("/delete/{managerId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> deleteManager(@PathVariable Integer managerId) {
-        try {
-            managerService.softDeleteManager(managerId);
-            return ResponseEntity.ok("Manager deleted successfully");
-        } catch (RuntimeException e) {
-            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
-        }
-    }
-
-    // ============================
-    // RESTORE MANAGER PROFILE (ADMIN)
-    // ============================
-    @PatchMapping("/restore/{managerId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> restoreManager(@PathVariable Integer managerId) {
-        try {
-            managerService.restoreManagerProfile(managerId);
-            return ResponseEntity.ok("Manager restored successfully");
-        } catch (RuntimeException e) {
-            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
-        }
-    }
-
-    // ============================
-    // GET MANAGER BY ID (ADMIN)
-    // ============================
-    @GetMapping("/{managerId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ManagerDto> getManagerById(@PathVariable Integer managerId) {
-        try {
-            ManagerDto manager = managerService.getManagerById(managerId);
-            return ResponseEntity.ok(manager);
-        } catch (RuntimeException e) {
-            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
-        }
-    }
-
-    // ============================
-    // GET ALL MANAGERS (ADMIN)
-    // ============================
-    @GetMapping("/all")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<ManagerDto>> getAllManagers() {
-        List<ManagerDto> managers = managerService.getAllManagers();
-        return ResponseEntity.ok(managers);
-    }
-
-    // ============================
-    // APPROVE MANAGER PROFILE (ADMIN)
-    // ============================
-    @PutMapping("/approve/{managerId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ManagerDto> approveManager(@PathVariable Integer managerId) {
-        try {
-            ManagerDto approved = managerService.approveManagerProfile(managerId);
-            return ResponseEntity.ok(approved);
-        } catch (RuntimeException e) {
-            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
-        }
-    }
-
-    // ============================
-    // DOWNLOAD NIC IMAGES (ADMIN)
-    // ============================
-    @GetMapping("/downloadNIC/{managerId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Resource> downloadNICImages(@PathVariable Integer managerId) {
-        try {
-            Resource resource = managerService.downloadNICImagesAsZip(managerId);
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=NIC_Images.zip")
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                    .body(resource);
-        } catch (RuntimeException e) {
-            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
-        }
-    }
 }
