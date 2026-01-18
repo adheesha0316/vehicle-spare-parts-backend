@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepo orderRepo;
-    private final OrderItemRepo orderItemRepo;
     private final UserRepo userRepo;
     private final SpareItemRepo spareItemRepo;
     private final CartRepo cartRepo;
@@ -54,13 +53,13 @@ public class OrderServiceImpl implements OrderService {
         }
 
         // 3. Create Order Instance
+        // Fix: Use 'orderItems' to match your Entity field name
         Order order = Order.builder()
                 .customer(customer)
                 .status(OrderStatus.PENDING_PAYMENT)
                 .totalAmount(BigDecimal.ZERO)
-                .items(new ArrayList<>())
+                .orderItems(new ArrayList<>())
                 .statusUpdates(new ArrayList<>())
-                .createdAt(LocalDateTime.now())
                 .build();
 
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -94,7 +93,7 @@ public class OrderServiceImpl implements OrderService {
                     .totalPrice(itemTotal)
                     .build();
 
-            order.getItems().add(orderItem);
+            order.getOrderItems().add(orderItem);
         }
 
         order.setTotalAmount(totalAmount);
@@ -168,7 +167,7 @@ public class OrderServiceImpl implements OrderService {
         );
 
         // Restock items in the order
-        for (OrderItem item : order.getItems()) {
+        for (OrderItem item : order.getOrderItems()) {
             SpareItem spareItem = item.getSpareItem();
             // Add back the quantity to stock
             spareItem.setQuantity(spareItem.getQuantity() + item.getQuantity());
@@ -196,9 +195,8 @@ public class OrderServiceImpl implements OrderService {
 
         // 2. Security Check
         if (currentUser.getRole() == Role.PARTNER) {
-            boolean ownsProductInOrder = order.getItems().stream()
+            boolean ownsProductInOrder = order.getOrderItems().stream()
                     .anyMatch(item -> item.getSpareItem().getPartner().getUser().getEmail().equals(currentUserEmail));
-
             if (!ownsProductInOrder) {
                 throw new org.springframework.security.access.AccessDeniedException("You are not authorized to update this order status.");
             }
@@ -228,6 +226,45 @@ public class OrderServiceImpl implements OrderService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public void assignCourierToOrder(Integer orderId, Integer courierId) {
+        Order order = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        // Set the Courier and move to the logistics phase
+        order.setCourierId(courierId);
+
+        // Using the status defined in your Enum
+        order.setStatus(OrderStatus.COURIER_ASSIGNED);
+
+        order.getStatusUpdates().add(
+                OrderStatusUpdate.builder()
+                        .order(order)
+                        .status(OrderStatus.COURIER_ASSIGNED.name())
+                        .timestamp(LocalDateTime.now())
+                        .reason("Assigned to Courier ID: " + courierId)
+                        .build()
+        );
+
+        orderRepo.save(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderResponseDto> getPlatformOrders() {
+        return orderRepo.findPlatformOrders().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderResponseDto> getPartnerOrders(Integer partnerId) {
+        return orderRepo.findByPartnerId(partnerId).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
     // ================= INTERNAL =================
 
     @Override
@@ -241,14 +278,14 @@ public class OrderServiceImpl implements OrderService {
 
     // ================= MAPPER =================
 
+    // ================= MAPPER FIX =================
     private OrderResponseDto mapToResponse(Order order) {
-        // Repository එකට Query කරන්නේ නැතිව Entity එකේ තියෙන list එකම පාවිච්චි කරන්න
-        List<OrderItemDto> itemDtos = order.getItems().stream()
+        List<OrderItemDto> itemDtos = order.getOrderItems().stream() // Changed to 'getOrderItems()'
                 .map(item -> OrderItemDto.builder()
                         .spareItemId(item.getSpareItem().getSpareItemId())
-                        .spareItemName(item.getSpareItemName()) // Snapshot name එක පාවිච්චි කරන්න
+                        .spareItemName(item.getSpareItemName())
                         .quantity(item.getQuantity())
-                        .unitPrice(item.getUnitPrice()) // BigDecimal ලෙසම තබාගන්න (Recommended)
+                        .unitPrice(item.getUnitPrice())
                         .totalPrice(item.getTotalPrice())
                         .build()
                 )

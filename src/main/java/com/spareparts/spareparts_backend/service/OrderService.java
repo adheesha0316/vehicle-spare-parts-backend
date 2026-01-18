@@ -28,6 +28,15 @@ public interface OrderService {
 
     List<OrderResponseDto> getAllOrders();
 
+    // NEW: Assign a Courier to an Order (Used by Admin or Partner)
+    void assignCourierToOrder(Integer orderId, Integer courierId);
+
+    // NEW: Get Orders that the Platform (Admin) needs to fulfill
+    List<OrderResponseDto> getPlatformOrders();
+
+    // NEW: Get Orders for a specific Partner
+    List<OrderResponseDto> getPartnerOrders(Integer partnerId);
+
     // ================= INTERNAL =================
     boolean canCancelOrder(Integer orderId);
 }

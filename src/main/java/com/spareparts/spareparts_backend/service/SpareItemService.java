@@ -34,6 +34,7 @@ public interface SpareItemService {
     List<SpareItemResponseDto> getApprovedByCategory(String categoryKey);
     Page<SpareItemResponseDto> getAllSpareItemsForAdmin(int page, int size); // For admin
     List<CategoryResponseDto> getAllCategories();
+    List<SpareItemResponseDto> getPlatformItems();
 
     //--------------- SEARCH ---------------
     List<SpareItemResponseDto> searchSpareItems(String query);

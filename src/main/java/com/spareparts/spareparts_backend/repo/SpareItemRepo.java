@@ -86,4 +86,7 @@ public interface SpareItemRepo extends JpaRepository<SpareItem, Integer> {
             String name, String description, SpareItemStatus status
     );
 
+    // Finds items where partner is null (meaning they belong to the Platform)
+    List<SpareItem> findByPartnerIsNull();
+
 }

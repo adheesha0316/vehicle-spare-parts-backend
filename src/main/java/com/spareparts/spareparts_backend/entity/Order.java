@@ -30,6 +30,10 @@ public class Order {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
+    // ================= COURIER (New Field) =================
+    // CourierAssignToOrder
+    private Integer courierId;
+
     // ================= PAYMENT =================
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
@@ -49,7 +53,8 @@ public class Order {
 
     // ================= ORDER ITEMS =================
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<OrderItem> orderItems;
+    @Builder.Default
+    private List<OrderItem> orderItems = new ArrayList<>();
 
     // ================= STATUS UPDATES =================
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)

@@ -608,6 +608,13 @@ public class AdminController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/spare-items/platform-owned")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<List<SpareItemResponseDto>> getPlatformOwnedItems() {
+        // Logic to return items where partnerId is NULL or specifically marked as Platform Items
+        return ResponseEntity.ok(spareItemService.getPlatformItems());
+    }
+
     //============== Order Controllers ==============
     @GetMapping("/orders/all")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")

@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -226,6 +227,17 @@ public class SpareItemServiceImpl implements SpareItemService {
                         category.getLabelSi()   // Sinhalese label
                 ))
                 .toList();
+    }
+
+    @Override
+    public List<SpareItemResponseDto> getPlatformItems() {
+        // Fetch items where partner is NULL
+        List<SpareItem> platformItems = spareItemRepo.findByPartnerIsNull();
+
+        // Map the entities to Response DTOs
+        return platformItems.stream()
+                .map(this::mapToResponseDto) // Reuse your existing mapper method
+                .collect(Collectors.toList());
     }
 
     @Override
