@@ -56,7 +56,7 @@ public class OrderServiceImpl implements OrderService {
         // 3. Create Order Instance
         Order order = Order.builder()
                 .customer(customer)
-                .status(OrderStatus.PENDING)
+                .status(OrderStatus.PENDING_PAYMENT)
                 .totalAmount(BigDecimal.ZERO)
                 .items(new ArrayList<>())
                 .statusUpdates(new ArrayList<>())
@@ -103,7 +103,7 @@ public class OrderServiceImpl implements OrderService {
         order.getStatusUpdates().add(
                 OrderStatusUpdate.builder()
                         .order(order)
-                        .status(OrderStatus.PENDING.name())
+                        .status(OrderStatus.PENDING_PAYMENT.name())
                         .timestamp(LocalDateTime.now())
                         .build()
         );
@@ -236,7 +236,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
         // Only PENDING or CONFIRMED orders can be cancelled
-        return order.getStatus() == OrderStatus.PENDING || order.getStatus() == OrderStatus.CONFIRMED;
+        return order.getStatus() == OrderStatus.PENDING_PAYMENT || order.getStatus() == OrderStatus.CONFIRMED;
     }
 
     // ================= MAPPER =================
