@@ -13,6 +13,12 @@ public interface CourierService {
      */
     CourierResponseDto registerCourier(CourierRegistrationDto registrationDto);
 
+    // Update profile
+    CourierResponseDto updateCourier(Integer courierId, CourierRegistrationDto updateDto);
+
+    // Delete profile
+    void deleteCourier(Integer courierId);
+
     /**
      * Updates the verification status of a courier.
      * Only verified couriers are recommended to partners.
@@ -48,4 +54,11 @@ public interface CourierService {
      * @param isActive Status.
      */
     void updateActiveStatus(Integer courierId, boolean isActive);
+
+    /**
+     * Retrieves courier profile details based on the associated User ID.
+     * @param userId ID of the User account.
+     * @return Courier profile details.
+     */
+    CourierResponseDto getCourierByUserId(Integer userId);
 }

@@ -38,6 +38,7 @@ public class AdminController {
     private final CustomerService customerService;
     private final SpareItemService spareItemService;
     private final OrderService orderService;
+    private final CourierService courierService;
     private final UserService userService;
     private final ObjectMapper mapper;
 
@@ -626,6 +627,53 @@ public class AdminController {
                 "success", true,
                 "message", "Order status updated successfully by Admin"
         ));
+    }
+
+    //================= courier Controller ==============
+    // 1. Get all couriers (Filtered by Admin to see who is pending/verified)
+    @GetMapping("/courier/all")
+    public ResponseEntity<List<CourierResponseDto>> getAll() {
+        return ResponseEntity.ok(courierService.getAllCouriers());
+    }
+
+    // 2. APPROVE / REJECT Registration or Profile Update
+    // status=true means Approved/Verified. status=false means Rejected/Unverified.
+    @PatchMapping("/courier/{id}/verify")
+    public ResponseEntity<String> verifyCourier(@PathVariable Integer id, @RequestParam boolean status) {
+        courierService.verifyCourier(id, status);
+        String action = status ? "approved and verified" : "rejected/unverified";
+        return ResponseEntity.ok("Courier has been " + action);
+    }
+
+    // 3. APPROVE DELETION (Hard Delete)
+    // Use this when a courier requests deactivation and you want to remove them permanently
+    @DeleteMapping("/courier/{id}/approve-deletion")
+    public ResponseEntity<String> approveDeletion(@PathVariable Integer id) {
+        courierService.deleteCourier(id);
+        return ResponseEntity.ok("Courier account and all associated data deleted permanently.");
+    }
+
+    // 4. REJECT DELETION (Re-activate)
+    // If a courier requested deactivation but you want to keep them active
+    @PatchMapping("/courier/{id}/reject-deletion")
+    public ResponseEntity<String> rejectDeletion(@PathVariable Integer id) {
+        courierService.updateActiveStatus(id, true);
+        return ResponseEntity.ok("Deletion request rejected. Courier account is now active again.");
+    }
+
+    // 5. MANUAL SUSPENSION
+    // Admin can manually disable any courier at any time for policy violations
+    @PatchMapping("/courier/{id}/active-status")
+    public ResponseEntity<String> toggleActiveStatus(@PathVariable Integer id, @RequestParam boolean status) {
+        courierService.updateActiveStatus(id, status);
+        return ResponseEntity.ok("Courier active status set to: " + status);
+    }
+
+    // 6. RECOMMEND COURIERS FOR A SPECIFIC ORDER
+    @GetMapping("/courier/recommend-for-order/{orderId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<List<CourierResponseDto>> getRecommendedCouriers(@PathVariable Integer orderId) {
+        return ResponseEntity.ok(courierService.getSuitableCouriersForOrder(orderId));
     }
 
 }

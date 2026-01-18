@@ -37,6 +37,9 @@ public class User {
     @Enumerated(EnumType.STRING)
     private UserStatus status; // PENDING_APPROVAL, APPROVED, REJECTED
 
+    @Column(nullable = false)
+    private boolean isActive = true;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

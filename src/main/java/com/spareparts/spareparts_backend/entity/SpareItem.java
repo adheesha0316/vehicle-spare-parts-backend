@@ -1,9 +1,6 @@
 package com.spareparts.spareparts_backend.entity;
 
-import com.spareparts.spareparts_backend.enums.SpareItemCategory;
-import com.spareparts.spareparts_backend.enums.OwnershipStatus;
-import com.spareparts.spareparts_backend.enums.SpareItemStatus;
-import com.spareparts.spareparts_backend.enums.StockStatus;
+import com.spareparts.spareparts_backend.enums.*;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -44,6 +41,9 @@ public class SpareItem {
 
     @Column(nullable = false)
     private Integer quantity;
+
+    @Enumerated(EnumType.STRING)
+    private ItemSize itemSize;
 
     @Column(nullable = false)
     private boolean deleted = false;
