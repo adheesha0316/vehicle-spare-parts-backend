@@ -1,16 +1,18 @@
 package com.spareparts.spareparts_backend.enums;
 
 public enum OrderStatus {
-    PENDING,        // Order created but not yet confirmed
-    PAID,           // Payment successful
-    CONFIRMED,      // Order confirmed by the system/partner
-    PROCESSING,     // Partner is preparing the order
-    SHIPPED,        // Order shipped to customer
-    OUT_FOR_DELIVERY, // Courier out for delivery
-    DELIVERED,      // Order successfully delivered
-    CANCELLED,      // Order cancelled by customer or system
-    RETURN_REQUESTED, // Customer requested a return
-    RETURNED,       // Order returned
-    REFUNDED,        // Money refunded
-    FAILED          // Payment or delivery failed
+    // Phase 1: Payment
+    PENDING_PAYMENT, PAID, CONFIRMED,
+
+    // Phase 2: Partner fulfillment
+    PROCESSING, READY_FOR_PICKUP,
+
+    // Phase 3: Logistics
+    COURIER_ASSIGNED, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY,
+
+    // Phase 4: Final
+    DELIVERED, CANCELLED,
+
+    // Phase 5: Reverse Logistics
+    RETURN_REQUESTED, RETURN_PICKED_UP, RETURNED, REFUNDED, FAILED
 }
