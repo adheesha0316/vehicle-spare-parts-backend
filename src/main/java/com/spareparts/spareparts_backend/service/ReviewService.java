@@ -17,10 +17,21 @@ public interface ReviewService {
             ReviewRequestDto requestDto
     );
 
+    void approveReview(
+            Integer reviewId,
+            boolean approve,
+            String rejectionReason
+    );
 
     List<ReviewResponseDto> getReviewsBySpareItem(Integer spareItemId);
 
+    List<ReviewResponseDto> getReviewsByPartner(Integer partnerId);
+
+    List<ReviewResponseDto> getReviewsByDelivery(Integer deliveryId);
+
     List<ReviewResponseDto> getCustomerReviews(Integer customerId);
+
+    List<ReviewResponseDto> getAllReviews();
 
     void deleteReview(
             Integer customerId,

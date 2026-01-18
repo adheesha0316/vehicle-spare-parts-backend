@@ -2,6 +2,8 @@ package com.spareparts.spareparts_backend.service;
 
 import com.spareparts.spareparts_backend.dto.CourierRegistrationDto;
 import com.spareparts.spareparts_backend.dto.CourierResponseDto;
+import com.spareparts.spareparts_backend.dto.OrderResponseDto;
+import com.spareparts.spareparts_backend.enums.OrderStatus;
 
 import java.util.List;
 
@@ -34,6 +36,29 @@ public interface CourierService {
      * @return List of suitable courier companies.
      */
     List<CourierResponseDto> getSuitableCouriersForOrder(Integer orderId);
+
+    // ================= COURIER OPERATIONS (THE PERFECT ADDITIONS) =================
+
+    /**
+     * Updates the delivery progress.
+     * Perfect implementation checks if the order is actually assigned to the calling courier.
+     */
+    void updateDeliveryStatus(Integer orderId, OrderStatus status, String courierEmail);
+
+    /**
+     * Returns orders currently in the 'Logistics' phase assigned to this courier.
+     */
+    List<OrderResponseDto> getMyActiveDeliveries(String courierEmail);
+
+    /**
+     * Returns a history of all successfully delivered or cancelled orders for this courier.
+     */
+    List<OrderResponseDto> getMyDeliveryHistory(String courierEmail);
+
+    /**
+     * Calculates and updates the courier's average rating based on customer feedback.
+     */
+    void updateCourierRating(Integer courierId, Double newRating);
 
     /**
      * Retrieves all active courier companies for admin purposes.

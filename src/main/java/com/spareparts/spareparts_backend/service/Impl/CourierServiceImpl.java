@@ -2,12 +2,15 @@ package com.spareparts.spareparts_backend.service.Impl;
 
 import com.spareparts.spareparts_backend.dto.CourierRegistrationDto;
 import com.spareparts.spareparts_backend.dto.CourierResponseDto;
+import com.spareparts.spareparts_backend.dto.OrderResponseDto;
 import com.spareparts.spareparts_backend.entity.CourierCompany;
 import com.spareparts.spareparts_backend.entity.Order;
 import com.spareparts.spareparts_backend.entity.User;
 import com.spareparts.spareparts_backend.enums.ItemSize;
+import com.spareparts.spareparts_backend.enums.OrderStatus;
 import com.spareparts.spareparts_backend.enums.Role;
 import com.spareparts.spareparts_backend.enums.VehicleType;
+import com.spareparts.spareparts_backend.exception.BadRequestException;
 import com.spareparts.spareparts_backend.exception.ResourceNotFoundException;
 import com.spareparts.spareparts_backend.repo.CourierCompanyRepo;
 import com.spareparts.spareparts_backend.repo.OrderRepo;
@@ -35,6 +38,12 @@ public class CourierServiceImpl implements CourierService {
 
     @Override
     public CourierResponseDto registerCourier(CourierRegistrationDto registrationDto) {
+        if (userRepo.existsByEmail(registrationDto.getEmail())) {
+            throw new BadRequestException("Email is already registered.");
+        }
+        if (courierRepo.existsByBusinessRegistrationNumber(registrationDto.getBusinessRegistrationNumber())) {
+            throw new BadRequestException("Business Registration Number already exists.");
+        }
         // 1. Create User account first with Role.COURIER
         User user = User.builder()
                 .email(registrationDto.getEmail())
@@ -59,8 +68,7 @@ public class CourierServiceImpl implements CourierService {
                 .rating(0.0)
                 .build();
 
-        CourierCompany savedCourier = courierRepo.save(courier);
-        return mapToResponseDto(savedCourier);
+        return mapToResponseDto(courierRepo.save(courier));
     }
 
     @Override
@@ -133,6 +141,78 @@ public class CourierServiceImpl implements CourierService {
                 .collect(Collectors.toList());    }
 
     @Override
+    public void updateDeliveryStatus(Integer orderId, OrderStatus status, String courierEmail) {
+        Order order = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        CourierCompany courier = courierRepo.findByUserEmail(courierEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Courier profile not found"));
+
+        // 1. SECURITY: Ensure this order is actually assigned to the courier making the request
+        if (order.getCourierId() == null || !order.getCourierId().equals(courier.getCourierId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Unauthorized: This order is not assigned to you.");
+        }
+
+        // 2. PERFECT LOGIC: Validate status flow (Prevent skipping steps)
+        validateStatusTransition(order.getStatus(), status);
+
+        // 3. Update Order and Add Audit Log
+        order.setStatus(status);
+
+        // Assuming OrderStatusUpdate is linked via the order's list
+        order.getStatusUpdates().add(
+                com.spareparts.spareparts_backend.entity.OrderStatusUpdate.builder()
+                        .order(order)
+                        .status(status.name())
+                        .timestamp(java.time.LocalDateTime.now())
+                        .reason("Status updated by courier: " + courier.getCompanyName())
+                        .build()
+        );
+
+        orderRepo.save(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderResponseDto> getMyActiveDeliveries(String courierEmail) {
+        CourierCompany courier = courierRepo.findByUserEmail(courierEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Courier profile not found"));
+
+        // Fetch orders assigned to this courier that are NOT in final states
+        return orderRepo.findByCourierId(courier.getCourierId()).stream()
+                .filter(o -> o.getStatus() != OrderStatus.DELIVERED &&
+                        o.getStatus() != OrderStatus.CANCELLED &&
+                        o.getStatus() != OrderStatus.RETURNED)
+                .map(this::mapOrderToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderResponseDto> getMyDeliveryHistory(String courierEmail) {
+        CourierCompany courier = courierRepo.findByUserEmail(courierEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Courier profile not found"));
+
+        // Fetch completed or cancelled orders
+        return orderRepo.findByCourierId(courier.getCourierId()).stream()
+                .filter(o -> o.getStatus() == OrderStatus.DELIVERED ||
+                        o.getStatus() == OrderStatus.CANCELLED)
+                .map(this::mapOrderToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void updateCourierRating(Integer courierId, Double newRating) {
+        CourierCompany courier = courierRepo.findById(courierId)
+                .orElseThrow(() -> new ResourceNotFoundException("Courier not found"));
+
+        // In a perfect system, you'd calculate average: (old_rating + new_rating) / 2
+        // For now, we update it directly
+        courier.setRating(newRating);
+        courierRepo.save(courier);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<CourierResponseDto> getAllCouriers() {
         return courierRepo.findAll().stream()
@@ -171,6 +251,33 @@ public class CourierServiceImpl implements CourierService {
             case LARGE -> Set.of(VehicleType.VAN, VehicleType.LORRY);
             case HEAVY -> Set.of(VehicleType.LORRY);
         };
+    }
+
+    // ================= PRIVATE HELPERS =================
+
+    private void validateStatusTransition(OrderStatus current, OrderStatus next) {
+        boolean isValid = switch (current) {
+            case COURIER_ASSIGNED -> (next == OrderStatus.PICKED_UP || next == OrderStatus.CANCELLED);
+            case PICKED_UP -> (next == OrderStatus.IN_TRANSIT || next == OrderStatus.FAILED);
+            case IN_TRANSIT -> (next == OrderStatus.OUT_FOR_DELIVERY || next == OrderStatus.FAILED);
+            case OUT_FOR_DELIVERY -> (next == OrderStatus.DELIVERED || next == OrderStatus.FAILED);
+            default -> true;
+        };
+
+        if (!isValid) {
+            throw new BadRequestException("Invalid status move from " + current + " to " + next);
+        }
+    }
+
+    private OrderResponseDto mapOrderToResponse(Order order) {
+        // Use your existing Order mapping logic here to keep DTOs consistent
+        return OrderResponseDto.builder()
+                .orderId(order.getOrderId())
+                .customerName(order.getCustomer().getUser().getUsername())
+                .orderStatus(order.getStatus().name())
+                .totalAmount(order.getTotalAmount())
+                .orderDate(order.getCreatedAt())
+                .build();
     }
 
     private CourierResponseDto mapToResponseDto(CourierCompany courier) {

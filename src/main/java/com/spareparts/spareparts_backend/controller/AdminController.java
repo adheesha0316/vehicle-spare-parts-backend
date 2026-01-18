@@ -639,13 +639,22 @@ public class AdminController {
     //================= courier Controller ==============
     // 1. Get all couriers (Filtered by Admin to see who is pending/verified)
     @GetMapping("/courier/all")
-    public ResponseEntity<List<CourierResponseDto>> getAll() {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<CourierResponseDto>> getAllCouriers() {
         return ResponseEntity.ok(courierService.getAllCouriers());
+    }
+
+    // get Courier's complete details
+    @GetMapping("/couriers/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CourierResponseDto> getCourierProfileForAdmin(@PathVariable Integer id) {
+        return ResponseEntity.ok(courierService.getCourierById(id));
     }
 
     // 2. APPROVE / REJECT Registration or Profile Update
     // status=true means Approved/Verified. status=false means Rejected/Unverified.
     @PatchMapping("/courier/{id}/verify")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> verifyCourier(@PathVariable Integer id, @RequestParam boolean status) {
         courierService.verifyCourier(id, status);
         String action = status ? "approved and verified" : "rejected/unverified";

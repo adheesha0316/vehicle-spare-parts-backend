@@ -2,6 +2,8 @@ package com.spareparts.spareparts_backend.controller;
 
 import com.spareparts.spareparts_backend.dto.CourierRegistrationDto;
 import com.spareparts.spareparts_backend.dto.CourierResponseDto;
+import com.spareparts.spareparts_backend.dto.OrderResponseDto;
+import com.spareparts.spareparts_backend.enums.OrderStatus;
 import com.spareparts.spareparts_backend.service.CourierService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -9,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -25,9 +28,16 @@ public class CourierController {
         return ResponseEntity.status(HttpStatus.CREATED).body(courierService.registerCourier(dto));
     }
 
+    @GetMapping("/profile/me")
+    @PreAuthorize("hasRole('COURIER')")
+    public ResponseEntity<CourierResponseDto> getMyProfile(Principal principal) {
+        // Securely fetch profile using email from JWT token
+        return ResponseEntity.ok(courierService.getCourierByUserId(null));
+    }
+
     // 2. GET PROFILE BY COURIER ID: Retrieve specific company details
     @GetMapping("/profile/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COURIER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<CourierResponseDto> getProfile(@PathVariable Integer id) {
         return ResponseEntity.ok(courierService.getCourierById(id));
     }
@@ -47,6 +57,40 @@ public class CourierController {
             @RequestBody CourierRegistrationDto dto) {
         return ResponseEntity.ok(courierService.updateCourier(id, dto));
     }
+
+    // ================= DELIVERY OPERATIONS =================
+    /**
+     * Get all currently active deliveries assigned to the logged-in courier.
+     */
+    @GetMapping("/my-active-deliveries")
+    @PreAuthorize("hasRole('COURIER')")
+    public ResponseEntity<List<OrderResponseDto>> getActiveDeliveries(Principal principal) {
+        return ResponseEntity.ok(courierService.getMyActiveDeliveries(principal.getName()));
+    }
+
+    /**
+     * Get the history of completed deliveries for the logged-in courier.
+     */
+    @GetMapping("/my-delivery-history")
+    @PreAuthorize("hasRole('COURIER')")
+    public ResponseEntity<List<OrderResponseDto>> getDeliveryHistory(Principal principal) {
+        return ResponseEntity.ok(courierService.getMyDeliveryHistory(principal.getName()));
+    }
+
+    /**
+     * Update order status (e.g., PICKED_UP, IN_TRANSIT, DELIVERED).
+     */
+    @PatchMapping("/update-status/{orderId}")
+    @PreAuthorize("hasRole('COURIER')")
+    public ResponseEntity<String> updateDeliveryStatus(
+            @PathVariable Integer orderId,
+            @RequestParam OrderStatus status,
+            Principal principal) {
+        courierService.updateDeliveryStatus(orderId, status, principal.getName());
+        return ResponseEntity.ok("Order status successfully updated to " + status);
+    }
+
+
 
     // 5. DEACTIVATE REQUEST: Courier disables their own account (Pending Admin Deletion)
     @PatchMapping("/profile/request-deactivate/{id}")
@@ -70,4 +114,6 @@ public class CourierController {
         // You can filter this in service to only return isVerified=true & isActive=true
         return ResponseEntity.ok(courierService.getAllCouriers());
     }
+
+
 }
