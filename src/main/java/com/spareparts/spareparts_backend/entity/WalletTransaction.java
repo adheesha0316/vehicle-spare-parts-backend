@@ -1,5 +1,6 @@
 package com.spareparts.spareparts_backend.entity;
 
+import com.spareparts.spareparts_backend.enums.WalletReferenceType;
 import com.spareparts.spareparts_backend.enums.WalletTransactionType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -26,12 +27,17 @@ public class WalletTransaction {
     @JoinColumn(name = "wallet_id", nullable = false)
     private Wallet wallet;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;   // + credit, - debit
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private WalletTransactionType type;
+
+    @Enumerated(EnumType.STRING)
+    private WalletReferenceType referenceType;
+
+    private Integer referenceId;
 
     @Column(nullable = false)
     private BigDecimal balanceAfter; // snapshot for history
