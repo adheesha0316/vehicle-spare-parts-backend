@@ -6,6 +6,8 @@ import com.spareparts.spareparts_backend.enums.OwnershipStatus;
 import com.spareparts.spareparts_backend.enums.SpareItemStatus;
 import com.spareparts.spareparts_backend.enums.StockStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -34,6 +36,20 @@ public interface SpareItemRepo extends JpaRepository<SpareItem, Integer> {
     );
 
     // ================= SEARCH / FILTER =================
+
+    /**
+     * Corrected Search Method:
+     * Using @Query is much safer here to ensure both Name and Description
+     * are filtered by Status correctly.
+     */
+    @Query("SELECT s FROM SpareItem s WHERE " +
+            "(LOWER(s.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+            "LOWER(s.description) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
+            "AND s.status = :status")
+    List<SpareItem> searchByNameOrDescriptionAndStatus(
+            @Param("searchTerm") String searchTerm,
+            @Param("status") SpareItemStatus status
+    );
 
     List<SpareItem> findByNameContainingIgnoreCaseAndStatus(
             String name,
@@ -80,10 +96,6 @@ public interface SpareItemRepo extends JpaRepository<SpareItem, Integer> {
             OwnershipStatus ownership,
             Integer partnerId,
             SpareItemStatus status
-    );
-
-    List<SpareItem> findByItemNameContainingIgnoreCaseOrDescriptionContainingIgnoreCaseAndStatus(
-            String name, String description, SpareItemStatus status
     );
 
     // Finds items where partner is null (meaning they belong to the Platform)

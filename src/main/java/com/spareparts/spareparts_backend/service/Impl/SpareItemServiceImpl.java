@@ -244,8 +244,8 @@ public class SpareItemServiceImpl implements SpareItemService {
     public List<SpareItemResponseDto> searchSpareItems(String query) {
         // Approved items විතරක් search එකට අහුකරමු
         List<SpareItem> items = spareItemRepo
-                .findByItemNameContainingIgnoreCaseOrDescriptionContainingIgnoreCaseAndStatus(
-                        query, query, SpareItemStatus.APPROVED);
+                .searchByNameOrDescriptionAndStatus(
+                        query, SpareItemStatus.APPROVED);
 
         return items.stream()
                 .map(item -> mapper.map(item, SpareItemResponseDto.class)) // ModelMapper හෝ manual mapping
