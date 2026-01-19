@@ -28,6 +28,7 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/uploads/**").permitAll()
                         // Public endpoints
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         // Admin endpoints

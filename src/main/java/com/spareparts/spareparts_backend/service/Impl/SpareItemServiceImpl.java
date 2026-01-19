@@ -16,6 +16,7 @@ import com.spareparts.spareparts_backend.service.SpareItemService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -45,6 +46,8 @@ public class SpareItemServiceImpl implements SpareItemService {
 
     private static final String UPLOAD_DIR = "uploads/spareItem/";
 
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     // ================= CREATE =================
     @Override
@@ -242,13 +245,12 @@ public class SpareItemServiceImpl implements SpareItemService {
 
     @Override
     public List<SpareItemResponseDto> searchSpareItems(String query) {
-        // Approved items විතරක් search එකට අහුකරමු
         List<SpareItem> items = spareItemRepo
                 .searchByNameOrDescriptionAndStatus(
                         query, SpareItemStatus.APPROVED);
 
         return items.stream()
-                .map(item -> mapper.map(item, SpareItemResponseDto.class)) // ModelMapper හෝ manual mapping
+                .map(this::mapToResponseDto) // ModelMapper හෝ manual mapping
                 .toList();
     }
 
@@ -327,7 +329,7 @@ public class SpareItemServiceImpl implements SpareItemService {
                 Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
                 // Web-friendly path එකක් සාදමු
-                paths.add("uploads/spareItem/" + filename);
+                paths.add(UPLOAD_DIR + filename);
             }
         } catch (IOException e) {
             throw new RuntimeException("Could not store images. Error: " + e.getMessage());
@@ -336,6 +338,15 @@ public class SpareItemServiceImpl implements SpareItemService {
     }
 
     private SpareItemResponseDto mapToResponseDto(SpareItem item) {
+        List<String> relativePaths = item.getImages();
+        List<String> fullImageUrls = new ArrayList<>();
+
+        if (relativePaths != null) {
+            for (String path : relativePaths) {
+                fullImageUrls.add(baseUrl + "/" + path);
+            }
+        }
+
         return new SpareItemResponseDto(
                 item.getSpareItemId(),
                 item.getName(),
@@ -344,7 +355,7 @@ public class SpareItemServiceImpl implements SpareItemService {
                 item.getCategory().name(),
                 item.getPrice(),
                 item.getStockStatus() != null ? item.getStockStatus().name() : null,
-                item.getImages(),
+                fullImageUrls,
                 item.getStatus(),
                 item.getOwnership(),
                 item.getPartner() != null ? item.getPartner().getPartnerId() : null,

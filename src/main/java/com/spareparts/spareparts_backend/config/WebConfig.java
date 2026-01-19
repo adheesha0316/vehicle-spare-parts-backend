@@ -21,8 +21,9 @@ public class WebConfig implements WebMvcConfigurer {
     // Serve uploaded images
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        String uploadPath = java.nio.file.Paths.get("uploads").toAbsolutePath().toString();
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads/");
+                .addResourceLocations(uploadPath);
     }
 
 }
