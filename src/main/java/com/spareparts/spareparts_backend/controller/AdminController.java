@@ -38,6 +38,7 @@ public class AdminController {
     private final CustomerService customerService;
     private final SpareItemService spareItemService;
     private final ReviewService reviewService;
+    private final WalletService walletService;
     private final OrderService orderService;
     private final CourierService courierService;
     private final UserService userService;
@@ -722,5 +723,28 @@ public class AdminController {
     public ResponseEntity<Void> deleteReviewByAdmin(@PathVariable Integer reviewId) {
         reviewService.deleteReviewByAdmin(reviewId);
         return ResponseEntity.noContent().build();
+    }
+
+    //================= Wallet Controller =============
+    // Move Wallet Credit to AdminController
+    @PostMapping("/wallet/credit")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> creditWallet(
+            @RequestParam Integer customerId,
+            @RequestParam double amount,
+            @RequestParam String reason) {
+        walletService.credit(customerId, amount, reason);
+        return ResponseEntity.ok("Wallet credited successfully by Admin");
+    }
+
+    // Move Wallet Debit to AdminController
+    @PostMapping("/wallet/debit")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> debitWallet(
+            @RequestParam Integer customerId,
+            @RequestParam double amount,
+            @RequestParam String reason) {
+        walletService.debit(customerId, amount, reason);
+        return ResponseEntity.ok("Wallet debited successfully by Admin");
     }
 }
