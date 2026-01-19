@@ -37,6 +37,7 @@ public class AdminController {
     private final ManagerService managerService;
     private final CustomerService customerService;
     private final SpareItemService spareItemService;
+    private final ReviewService reviewService;
     private final OrderService orderService;
     private final CourierService courierService;
     private final UserService userService;
@@ -50,36 +51,36 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<UserDtoReturn>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "0") int size
+            @RequestParam(defaultValue = "10") int size
     ) {
         Page<UserDtoReturn> users = userService.getAllUsers(page, size);
         return ResponseEntity.ok(users);
     }
 
     // ---------------- APPROVE USER (ADMIN) ---------------- //
-    @PutMapping("/user/approve/{id}")
+    @PutMapping("/user/approve/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserDtoReturn> approveUser(@PathVariable Integer id) {
-        UserDtoReturn user = userService.approveUser(id);
+    public ResponseEntity<UserDtoReturn> approveUser(@PathVariable("userId") Integer userId) {
+        UserDtoReturn user = userService.approveUser(userId);
         return ResponseEntity.ok(user);
     }
 
     // ---------------- DISAPPROVE USER (ADMIN) ---------------- //
-    @PutMapping("/user/disapprove/{id}")
+    @PutMapping("/user/disapprove/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserDtoReturn> disapproveUser(@PathVariable Integer id) {
-        UserDtoReturn user = userService.disapproveUser(id);
+    public ResponseEntity<UserDtoReturn> disapproveUser(@PathVariable("userId") Integer userId) {
+        UserDtoReturn user = userService.disapproveUser(userId);
         return ResponseEntity.ok(user);
     }
 
     // ---------------- CHANGE USER ROLE (ADMIN) ---------------- //
-    @PutMapping("/{id}/role")
+    @PutMapping("/user/{userId}/role")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDtoReturn> changeUserRole(
-            @PathVariable Integer id,
+            @PathVariable("userId") Integer userId,
             @RequestParam Role role
     ) {
-        UserDtoReturn updatedUser = userService.changeUserRole(id, role);
+        UserDtoReturn updatedUser = userService.changeUserRole(userId, role);
         return ResponseEntity.ok(updatedUser);
     }
 
@@ -122,7 +123,7 @@ public class AdminController {
 
     // ================= GET PARTNER =================
 
-    @GetMapping("/get/partner/user/{userId}")
+    @GetMapping("/partner/get/user/{userId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<PartnerResponseDto> getPartnerByUserId(@PathVariable Integer userId) {
         return ResponseEntity.ok(
@@ -130,7 +131,7 @@ public class AdminController {
         );
     }
 
-    @GetMapping("/get/partner/{partnerId}")
+    @GetMapping("/partner/get/{partnerId}")
     @PreAuthorize("hasAnyRole('ADMIN','PARTNER')")
     public ResponseEntity<PartnerResponseDto> getPartnerById(@PathVariable Integer partnerId) {
         return ResponseEntity.ok(
@@ -159,7 +160,7 @@ public class AdminController {
     /**
      * ADMIN & MANAGER ONLY
      */
-    @GetMapping("/{partnerId}/signed-agreements")
+    @GetMapping("/partner/{partnerId}/signed-agreements")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<List<PartnerSignedAgreementDto>> getSignedAgreementsByPartner(
             @PathVariable Integer partnerId
@@ -177,7 +178,7 @@ public class AdminController {
     /**
      * ADMIN & MANAGER ONLY
      */
-    @GetMapping("/{partnerId}/signed-agreements/latest")
+    @GetMapping("/partner/{partnerId}/signed-agreements/latest")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<PartnerSignedAgreement> getLatestSignedAgreementByPartner(
             @PathVariable Integer partnerId
@@ -251,7 +252,7 @@ public class AdminController {
         }
     }
 
-    @PostMapping(value = "/admin/agreement/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "agreement/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PartnerAgreement> uploadAgreement(
             @RequestPart MultipartFile agreementFile,
@@ -262,14 +263,14 @@ public class AdminController {
         );
     }
 
-    @DeleteMapping("/admin/agreement/{agreementId}")
+    @DeleteMapping("agreement/{agreementId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> removeAgreement(@PathVariable Integer agreementId) {
         partnerService.removeAgreement(agreementId);
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping(value = "/admin/agreement/upload-new", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/agreement/upload-new", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PartnerAgreement> uploadNewAgreementVersion(
             @RequestPart MultipartFile agreementFile,
@@ -307,16 +308,23 @@ public class AdminController {
             @RequestParam(required = false) String rejectionReason,
             Authentication authentication // Authentication object eka ganna
     ) {
-        // 1. Get the email from the authentication object
-        String email = authentication.getName();
+        // 1. Validate if the principal is of the expected custom type
+        if (!(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new IllegalStateException("Authentication principal is not an instance of CustomUserDetails");
+        }
 
-        // 2. Fetch the actual User entity from your database using email
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        // 2. Extract the user ID directly from the UserDetails
         Integer approverId = userDetails.getUserId();
 
-        return ResponseEntity.ok(
-                partnerService.approveOrRejectSpareItem(spareItemId, approve, rejectionReason, approverId)
+        // 3. Process the approval/rejection via service layer
+        SpareItemResponseDto response = partnerService.approveOrRejectSpareItem(
+                spareItemId,
+                approve,
+                rejectionReason,
+                approverId
         );
+
+        return ResponseEntity.ok(response);
     }
 
     // ================= SPARE ITEM LISTS =================
@@ -366,21 +374,17 @@ public class AdminController {
     // ============================
     // DELETE MANAGER PROFILE (ADMIN)
     // ============================
-    @DeleteMapping("/delete/manager/{managerId}")
+    @DeleteMapping("/manager/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> deleteManager(@PathVariable Integer managerId) {
-        try {
-            managerService.softDeleteManager(managerId);
-            return ResponseEntity.ok("Manager deleted successfully");
-        } catch (RuntimeException e) {
-            throw new ResponseStatusException(NOT_FOUND, e.getMessage());
-        }
+    public ResponseEntity<String> deleteManager(@PathVariable("managerId") Integer managerId) {
+        managerService.softDeleteManager(managerId);
+        return ResponseEntity.ok("Manager deleted successfully");
     }
 
     // ============================
     // RESTORE MANAGER PROFILE (ADMIN)
     // ============================
-    @PatchMapping("/restore/manager/{managerId}")
+    @PatchMapping("/manager/restore/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> restoreManager(@PathVariable Integer managerId) {
         try {
@@ -418,7 +422,7 @@ public class AdminController {
     // ============================
     // APPROVE MANAGER PROFILE (ADMIN)
     // ============================
-    @PutMapping("/approve/manager/{managerId}")
+    @PutMapping("/manager/approve/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ManagerDto> approveManager(@PathVariable Integer managerId) {
         try {
@@ -432,7 +436,7 @@ public class AdminController {
     // ============================
     // DOWNLOAD NIC IMAGES (ADMIN)
     // ============================
-    @GetMapping("/downloadNIC/manager/{managerId}")
+    @GetMapping("/manager/downloadNIC/{managerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Resource> downloadNICImages(@PathVariable Integer managerId) {
         try {
@@ -536,7 +540,7 @@ public class AdminController {
     }
 
     // ---------------- UPDATE BY MANAGER ----------------
-    @PutMapping("/update/manager/{spareItemId}")
+    @PutMapping("/manager/update/{spareItemId}")
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<SpareItemResponseDto> updateByManager(
             @PathVariable Integer spareItemId,
@@ -602,10 +606,9 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<SpareItemResponseDto>> getAllForAdmin(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "0") int size
+            @RequestParam(defaultValue = "10") int size
     ) {
-        Page<SpareItemResponseDto> response = spareItemService.getAllSpareItemsForAdmin(page, size);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(spareItemService.getAllSpareItemsForAdmin(page, size));
     }
 
     @GetMapping("/spare-items/platform-owned")
@@ -692,4 +695,32 @@ public class AdminController {
         return ResponseEntity.ok(courierService.getSuitableCouriersForOrder(orderId));
     }
 
+
+    //=============== Review Controller ================
+    // 1. GET ALL REVIEWS (Pending and Approved)
+    @GetMapping("/review/all")
+    public ResponseEntity<List<ReviewResponseDto>> getAllReviews() {
+        return ResponseEntity.ok(reviewService.getAllReviews());
+    }
+
+    // 2. APPROVE OR REJECT A REVIEW
+    @PatchMapping("/review/{reviewId}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> approveReview(
+            @PathVariable Integer reviewId,
+            @RequestParam boolean approve,
+            @RequestParam(required = false) String reason
+    ) {
+        reviewService.approveReview(reviewId, approve, reason);
+        String status = approve ? "approved" : "rejected";
+        return ResponseEntity.ok("Review " + status + " successfully.");
+    }
+
+    // 3. DELETE ANY OFFENSIVE REVIEW
+    @DeleteMapping("/review/{reviewId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteReviewByAdmin(@PathVariable Integer reviewId) {
+        reviewService.deleteReviewByAdmin(reviewId);
+        return ResponseEntity.noContent().build();
+    }
 }
