@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 public class LoyaltyPoints {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer pointId;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false, unique = true)

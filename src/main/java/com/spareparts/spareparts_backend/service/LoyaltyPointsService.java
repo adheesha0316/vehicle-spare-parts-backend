@@ -4,7 +4,7 @@ import com.spareparts.spareparts_backend.dto.LoyaltyTransactionResponseDto;
 
 import java.util.List;
 
-public interface LoyaltyPointService {
+public interface LoyaltyPointsService {
     int getPoints(Integer customerId);
 
     void earnPoints(

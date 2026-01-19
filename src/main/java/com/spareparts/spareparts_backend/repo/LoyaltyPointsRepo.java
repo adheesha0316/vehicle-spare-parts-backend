@@ -8,5 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface LoyaltyPointsRepo extends JpaRepository<LoyaltyPoints, Integer> {
-    Optional<LoyaltyPoints> findByCustomerId(Integer customerId);
+    Optional<LoyaltyPoints> findByCustomer_CustomerId(Integer customerId);
 }
